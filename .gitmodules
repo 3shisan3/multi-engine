@@ -1,0 +1,7 @@
+[submodule "cyclonedds"]
+	path = thirdparty/cyclonedds-0.10.5
+	url = https://github.com/eclipse-cyclonedds/cyclonedds.git
+
+[submodule "spdlog"]
+	path = thirdparty/spdlog-1.17.0
+	url = https://github.com/gabime/spdlog.git
