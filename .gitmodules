@@ -5,3 +5,7 @@
 [submodule "spdlog"]
 	path = thirdparty/spdlog-1.17.0
 	url = https://github.com/gabime/spdlog.git
+
+[submodule "asio"]
+	path = thirdparty/asio-1.36.0
+	url = https://github.com/chriskohlhoff/asio.git
