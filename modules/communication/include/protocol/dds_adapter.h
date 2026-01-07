@@ -2,14 +2,15 @@
 Copyright (c) 2022-2030, shisan233@sszc.live.
 SPDX-License-Identifier: MIT
 File:        dds_adapter.h
-Version:     1.0
+Version:     1.1
 Author:      cjx
 start date:
-Description: 针对dds协议的适配器实现，基于开源库CycloneDDS
+Description: 针对dds协议的适配器实现，基于开源库CycloneDDS（完整版）
 Version history
 
 [序号]    |   [修改日期]  |   [修改者]   |   [修改内容]
 1             2026-1-04      cjx            create
+2             2026-1-07      cjx            添加完整主题管理接口
 
 *****************************************************************/
 
@@ -89,19 +90,109 @@ private:
         uint32_t checksum;
     };
 
-    // DDS相关方法
 #ifdef USE_DDS
     bool InitializeDDS();
     void CleanupDDS();
 
     bool CreateTopic(const std::string &topicName);
+
+    /**
+     * @brief 删除DDS主题
+     * @param topicName 主题名称
+     * @return 成功返回true，失败返回false
+     */
     bool DeleteTopic(const std::string &topicName);
 
+    /**
+     * @brief 更新主题的QoS配置
+     * @param topicName 主题名称
+     * @param qosParams QoS参数映射
+     * @return 成功返回true，失败返回false
+     */
+    bool UpdateTopicQoS(const std::string &topicName, 
+                       const std::map<std::string, std::any>& qosParams);
+
+    /**
+     * @brief 获取所有主题列表
+     * @return 主题名称列表
+     */
+    std::vector<std::string> GetAllTopics() const;
+
+    /**
+     * @brief 获取主题的订阅者列表
+     * @param topicName 主题名称
+     * @return 订阅该主题的客户端ID列表
+     */
+    std::vector<ClientId> GetTopicSubscribers(const std::string &topicName) const;
+
+    /**
+     * @brief 检查主题是否存在
+     * @param topicName 主题名称
+     * @return 存在返回true，否则返回false
+     */
+    bool IsTopicExists(const std::string &topicName) const;
+
+    /**
+     * @brief 重新扫描和清理主题及客户端
+     * 清理无效的订阅者和不活跃的客户端
+     */
+    void RescanTopics();
+
+    /**
+     * @brief 订阅客户端到主题
+     * @param clientId 客户端ID
+     * @param topicName 主题名称
+     * @return 成功返回true，失败返回false
+     */
+    bool SubscribeClientToTopic(ClientId clientId, const std::string &topicName);
+
+    /**
+     * @brief 取消客户端对主题的订阅
+     * @param clientId 客户端ID
+     * @param topicName 主题名称
+     * @return 成功返回true，失败返回false
+     */
+    bool UnsubscribeClientFromTopic(ClientId clientId, const std::string &topicName);
+
+    /**
+     * @brief 获取客户端的订阅列表
+     * @param clientId 客户端ID
+     * @return 客户端订阅的主题名称列表
+     */
+    std::vector<std::string> GetClientSubscriptions(ClientId clientId) const;
+
+    /**
+     * @brief 获取主题统计信息
+     * @param topicName 主题名称
+     * @return 主题统计信息映射
+     */
+    std::map<std::string, std::any> GetTopicStats(const std::string &topicName) const;
+
+    /**
+     * @brief 批量创建主题
+     * @param topicNames 主题名称列表
+     * @return 成功创建的主题数量
+     */
+    int BatchCreateTopics(const std::vector<std::string> &topicNames);
+
+    /**
+     * @brief 批量删除主题
+     * @param topicNames 主题名称列表
+     * @return 成功删除的主题数量
+     */
+    int BatchDeleteTopics(const std::vector<std::string> &topicNames);
+    
     void ReaderThreadFunc();
-    void ProcessIncomingMessages();
     void HandleDiscoveryEvent(dds_entity_t reader);
 
     bool SafePublish(const std::string &topic, const void *data, size_t size);
+    
+    /**
+     * @brief 处理DDS发现错误
+     * @param errorCode DDS错误码
+     * @param operation 发生错误的操作名称
+     */
+    void HandleDDSDiscoveryError(int errorCode, const std::string &operation);
 #endif
 
     // 序列化/反序列化

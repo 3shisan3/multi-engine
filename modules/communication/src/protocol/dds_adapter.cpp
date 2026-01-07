@@ -339,7 +339,386 @@ bool DDSProtocolAdapter::SendRawData(ClientId clientId, const std::vector<uint8_
     return SendToClient(clientId, message);
 }
 
+// =============== DDS内部方法实现 ===============
+
 #ifdef USE_DDS
+bool DDSProtocolAdapter::DeleteTopic(const std::string &topicName)
+{
+    std::lock_guard<std::mutex> lock(topicsMutex_);
+    
+    auto it = topics_.find(topicName);
+    if (it == topics_.end())
+    {
+        return false; // 主题不存在
+    }
+    
+    // 清理主题的所有订阅者
+    auto& topicInfo = it->second;
+    
+    // 从所有客户端的订阅列表中移除该主题
+    {
+        std::lock_guard<std::mutex> clientLock(clientsMutex_);
+        for (auto& clientPair : ddsClients_)
+        {
+            clientPair.second.subscribedTopics.erase(topicName);
+        }
+    }
+    
+    // 删除DDS实体
+    if (topicInfo->reader)
+    {
+        dds_delete(topicInfo->reader);
+    }
+    if (topicInfo->writer)
+    {
+        dds_delete(topicInfo->writer);
+    }
+    if (topicInfo->topic)
+    {
+        dds_delete(topicInfo->topic);
+    }
+    
+    // 从主题列表中移除
+    topics_.erase(it);
+    
+    // 更新统计
+    UpdateStatistic("topics_deleted", 1);
+    
+    return true;
+}
+
+bool DDSProtocolAdapter::UpdateTopicQoS(const std::string &topicName, 
+                                       const std::map<std::string, std::any>& qosParams)
+{
+    std::lock_guard<std::mutex> lock(topicsMutex_);
+    
+    auto it = topics_.find(topicName);
+    if (it == topics_.end())
+    {
+        return false; // 主题不存在
+    }
+    
+    // 解析QoS参数
+    try
+    {
+        auto& topicInfo = it->second;
+        
+        // 获取新的QoS配置
+        dds_qos_t *newQos = dds_create_qos();
+        
+        // 设置可靠性
+        auto reliabilityIt = qosParams.find("reliability");
+        if (reliabilityIt != qosParams.end())
+        {
+            std::string reliability = std::any_cast<std::string>(reliabilityIt->second);
+            if (reliability == "reliable")
+            {
+                dds_qset_reliability(newQos, DDS_RELIABILITY_RELIABLE, DDS_SECS(10));
+            }
+            else if (reliability == "best_effort")
+            {
+                dds_qset_reliability(newQos, DDS_RELIABILITY_BEST_EFFORT, DDS_SECS(0));
+            }
+        }
+        
+        // 设置历史深度
+        auto historyIt = qosParams.find("history_depth");
+        if (historyIt != qosParams.end())
+        {
+            int depth = std::any_cast<int>(historyIt->second);
+            dds_qset_history(newQos, DDS_HISTORY_KEEP_LAST, depth);
+        }
+        
+        // 设置持久性
+        auto durabilityIt = qosParams.find("durability");
+        if (durabilityIt != qosParams.end())
+        {
+            std::string durability = std::any_cast<std::string>(durabilityIt->second);
+            if (durability == "transient")
+            {
+                dds_qset_durability(newQos, DDS_DURABILITY_TRANSIENT);
+            }
+            else if (durability == "persistent")
+            {
+                dds_qset_durability(newQos, DDS_DURABILITY_PERSISTENT);
+            }
+            else
+            {
+                dds_qset_durability(newQos, DDS_DURABILITY_VOLATILE);
+            }
+        }
+        
+        // 应用新的QoS到DataWriter和DataReader
+        if (topicInfo->writer)
+        {
+            dds_set_qos(topicInfo->writer, newQos);
+        }
+        
+        if (topicInfo->reader)
+        {
+            dds_set_qos(topicInfo->reader, newQos);
+        }
+        
+        dds_delete_qos(newQos);
+        
+        return true;
+    }
+    catch (const std::exception& e)
+    {
+        NotifyError(std::string("Failed to update topic QoS: ") + e.what(), -10);
+        return false;
+    }
+}
+
+std::vector<std::string> DDSProtocolAdapter::GetAllTopics() const
+{
+    std::lock_guard<std::mutex> lock(topicsMutex_);
+    
+    std::vector<std::string> topicList;
+    topicList.reserve(topics_.size());
+    
+    for (const auto& pair : topics_)
+    {
+        topicList.push_back(pair.first);
+    }
+    
+    return topicList;
+}
+
+std::vector<ClientId> DDSProtocolAdapter::GetTopicSubscribers(const std::string &topicName) const
+{
+    std::lock_guard<std::mutex> lock(topicsMutex_);
+    
+    auto it = topics_.find(topicName);
+    if (it == topics_.end())
+    {
+        return {};
+    }
+    
+    const auto& subscribers = it->second->subscribers;
+    return std::vector<ClientId>(subscribers.begin(), subscribers.end());
+}
+
+bool DDSProtocolAdapter::IsTopicExists(const std::string &topicName) const
+{
+    std::lock_guard<std::mutex> lock(topicsMutex_);
+    return topics_.find(topicName) != topics_.end();
+}
+
+void DDSProtocolAdapter::RescanTopics()
+{
+    // 重新扫描所有主题，清理无效的订阅者
+    std::lock_guard<std::mutex> topicsLock(topicsMutex_);
+    std::lock_guard<std::mutex> clientsLock(clientsMutex_);
+    
+    auto now = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+    
+    for (auto& topicPair : topics_)
+    {
+        auto& topicInfo = topicPair.second;
+        auto& subscribers = topicInfo->subscribers;
+        
+        // 移除不存在的客户端
+        std::unordered_set<ClientId> validSubscribers;
+        for (ClientId clientId : subscribers)
+        {
+            if (ddsClients_.find(clientId) != ddsClients_.end())
+            {
+                // 检查客户端是否仍然订阅该主题
+                const auto& clientInfo = ddsClients_[clientId];
+                if (clientInfo.subscribedTopics.find(topicPair.first) != 
+                    clientInfo.subscribedTopics.end())
+                {
+                    validSubscribers.insert(clientId);
+                }
+            }
+        }
+        
+        // 更新订阅者列表
+        topicInfo->subscribers = std::move(validSubscribers);
+    }
+    
+    // 清理不活跃的客户端
+    std::vector<ClientId> clientsToRemove;
+    for (const auto& clientPair : ddsClients_)
+    {
+        if (now - clientPair.second.lastSeenTime > GetConfig().connectionTimeoutMs)
+        {
+            clientsToRemove.push_back(clientPair.first);
+        }
+    }
+    
+    for (ClientId clientId : clientsToRemove)
+    {
+        // 从所有主题的订阅者中移除
+        for (auto& topicPair : topics_)
+        {
+            topicPair.second->subscribers.erase(clientId);
+        }
+        
+        // 从客户端列表中移除
+        ddsClients_.erase(clientId);
+        
+        // 从GUID映射中移除
+        for (auto it = guidToClient_.begin(); it != guidToClient_.end();)
+        {
+            if (it->second == clientId)
+            {
+                it = guidToClient_.erase(it);
+            }
+            else
+            {
+                ++it;
+            }
+        }
+    }
+}
+
+bool DDSProtocolAdapter::SubscribeClientToTopic(ClientId clientId, const std::string &topicName)
+{
+    std::lock_guard<std::mutex> clientsLock(clientsMutex_);
+    std::lock_guard<std::mutex> topicsLock(topicsMutex_);
+    
+    // 检查客户端是否存在
+    auto clientIt = ddsClients_.find(clientId);
+    if (clientIt == ddsClients_.end())
+    {
+        return false;
+    }
+    
+    // 检查主题是否存在
+    auto topicIt = topics_.find(topicName);
+    if (topicIt == topics_.end())
+    {
+        // 主题不存在，尝试创建
+        if (!CreateTopic(topicName))
+        {
+            return false;
+        }
+        topicIt = topics_.find(topicName);
+    }
+    
+    // 添加到客户端的订阅列表
+    clientIt->second.subscribedTopics.insert(topicName);
+    
+    // 添加到主题的订阅者列表
+    topicIt->second->subscribers.insert(clientId);
+    
+    return true;
+}
+
+bool DDSProtocolAdapter::UnsubscribeClientFromTopic(ClientId clientId, const std::string &topicName)
+{
+    std::lock_guard<std::mutex> clientsLock(clientsMutex_);
+    std::lock_guard<std::mutex> topicsLock(topicsMutex_);
+    
+    // 从客户端的订阅列表中移除
+    auto clientIt = ddsClients_.find(clientId);
+    if (clientIt != ddsClients_.end())
+    {
+        clientIt->second.subscribedTopics.erase(topicName);
+    }
+    
+    // 从主题的订阅者列表中移除
+    auto topicIt = topics_.find(topicName);
+    if (topicIt != topics_.end())
+    {
+        topicIt->second->subscribers.erase(clientId);
+    }
+    
+    return true;
+}
+
+std::vector<std::string> DDSProtocolAdapter::GetClientSubscriptions(ClientId clientId) const
+{
+    std::lock_guard<std::mutex> lock(clientsMutex_);
+    
+    auto it = ddsClients_.find(clientId);
+    if (it == ddsClients_.end())
+    {
+        return {};
+    }
+    
+    const auto& subscribedTopics = it->second.subscribedTopics;
+    return std::vector<std::string>(subscribedTopics.begin(), subscribedTopics.end());
+}
+
+std::map<std::string, std::any> DDSProtocolAdapter::GetTopicStats(const std::string &topicName) const
+{
+    std::map<std::string, std::any> stats;
+    
+#ifdef USE_DDS
+    std::lock_guard<std::mutex> lock(topicsMutex_);
+    
+    auto it = topics_.find(topicName);
+    if (it == topics_.end())
+    {
+        return stats;
+    }
+    
+    const auto& topicInfo = it->second;
+    
+    // 获取DataWriter状态
+    if (topicInfo->writer)
+    {
+        uint32_t writerStatus = 0;
+        dds_return_t rc = dds_get_status_changes(topicInfo->writer, &writerStatus);
+        if (rc == DDS_RETCODE_OK)
+        {
+            stats["writer_status"] = static_cast<int>(writerStatus);
+        }
+    }
+    
+    // 获取DataReader状态
+    if (topicInfo->reader)
+    {
+        uint32_t readerStatus = 0;
+        dds_return_t rc = dds_get_status_changes(topicInfo->reader, &readerStatus);
+        if (rc == DDS_RETCODE_OK)
+        {
+            stats["reader_status"] = static_cast<int>(readerStatus);
+        }
+    }
+    
+    // 主题基本信息
+    stats["topic_name"] = topicName;
+    stats["subscriber_count"] = static_cast<int>(topicInfo->subscribers.size());
+    stats["created_time"] = topicsCreated_.load();
+#endif
+    
+    return stats;
+}
+
+int DDSProtocolAdapter::BatchCreateTopics(const std::vector<std::string> &topicNames)
+{
+    int successCount = 0;
+    
+    for (const auto& topicName : topicNames)
+    {
+        if (CreateTopic(topicName))
+        {
+            successCount++;
+        }
+    }
+    
+    return successCount;
+}
+
+int DDSProtocolAdapter::BatchDeleteTopics(const std::vector<std::string> &topicNames)
+{
+    int successCount = 0;
+    
+    for (const auto& topicName : topicNames)
+    {
+        if (DeleteTopic(topicName))
+        {
+            successCount++;
+        }
+    }
+    
+    return successCount;
+}
+
 bool DDSProtocolAdapter::InitializeDDS()
 {
     // 创建DomainParticipant
@@ -610,6 +989,27 @@ void DDSProtocolAdapter::HandleDiscoveryEvent(dds_entity_t reader)
                 UpdateStatistic("connections", 1);
             }
         }
+    }
+}
+
+void DDSProtocolAdapter::HandleDDSDiscoveryError(int errorCode, const std::string &operation)
+{
+    const char *errorMsg = dds_strretcode(-errorCode);
+    std::string fullError = "DDS discovery error in " + operation + ": " + 
+                           errorMsg + " (code: " + std::to_string(errorCode) + ")";
+    
+    NotifyError(fullError, errorCode);
+    
+    // 根据错误类型采取不同的恢复措施
+    if (errorCode == DDS_RETCODE_OUT_OF_RESOURCES)
+    {
+        // 清理一些资源
+        RescanTopics();
+    }
+    else if (errorCode == DDS_RETCODE_TIMEOUT)
+    {
+        // 可以在这里实现重试逻辑
+        // 例如：延迟后重新尝试发现
     }
 }
 #endif // USE_DDS

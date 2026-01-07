@@ -1,11 +1,25 @@
 #include "communicate_hub_factory.h"
 #include "multi_protocol_communicate.h"
 
+// 包含所有协议适配器头文件
+#ifdef USE_ASIO
+#include "protocol/tcp_adapter.h"
+#include "protocol/udp_adapter.h"
+#endif
+
+#ifdef USE_DDS
+#include "protocol/dds_adapter.h"
+#endif
+
+#ifdef USE_WEBSOCKET
+#include "protocol/websocket_adapter.h"
+#endif
+
 namespace CommunicationModule
 {
 
 // 静态成员初始化
-std::string CommunicationHubFactory::defaultProtocolAdapter_ = "DDS";
+std::string CommunicationHubFactory::defaultProtocolAdapter_ = "TCP";
 std::mutex CommunicationHubFactory::factoryMutex_;
 
 std::map<std::string, std::function<std::shared_ptr<IProtocolAdapter>()>> &
@@ -16,8 +30,36 @@ CommunicationHubFactory::GetFactoryMap()
 
     if (!initialized)
     {
-        // 可以在这里注册默认的协议适配器
-        // 实际项目中会根据编译选项动态注册
+        // 注册TCP适配器
+        factoryMap["TCP"] = []() -> std::shared_ptr<IProtocolAdapter> {
+            return std::make_shared<TCPProtocolAdapter>();
+        };
+
+        // 注册UDP适配器
+        factoryMap["UDP"] = []() -> std::shared_ptr<IProtocolAdapter> {
+            return std::make_shared<UDPProtocolAdapter>();
+        };
+
+        // 注册DDS适配器（如果启用）
+#ifdef USE_DDS
+        factoryMap["DDS"] = []() -> std::shared_ptr<IProtocolAdapter> {
+            return std::make_shared<DDSProtocolAdapter>();
+        };
+#endif
+
+        // 注册WebSocket适配器（如果启用）
+#ifdef USE_WEBSOCKET
+        factoryMap["WebSocket"] = []() -> std::shared_ptr<IProtocolAdapter> {
+            return std::make_shared<WebSocketProtocolAdapter>();
+        };
+#endif
+
+        // 注册MQTT适配器（预留）
+        factoryMap["MQTT"] = []() -> std::shared_ptr<IProtocolAdapter> {
+            // 返回nullptr，需要时再实现
+            return nullptr;
+        };
+
         initialized = true;
     }
     return factoryMap;
@@ -49,13 +91,15 @@ std::shared_ptr<IProtocolAdapter> CommunicationHubFactory::CreateProtocolAdapter
         return it->second();
     }
 
-    // 尝试创建默认适配器
-    if (protocolType == "TCP")
+    // 创建默认适配器
+    if (!defaultProtocolAdapter_.empty())
     {
-        // 需要包含TCP适配器头文件
-        // return std::make_shared<TCPProtocolAdapter>();
+        auto defaultIt = factoryMap.find(defaultProtocolAdapter_);
+        if (defaultIt != factoryMap.end())
+        {
+            return defaultIt->second();
+        }
     }
-    // 其他默认适配器...
 
     return nullptr;
 }
@@ -145,11 +189,16 @@ bool CommunicationHubFactory::IsProtocolSupported(const std::string &protocolTyp
 
     if (factoryMap.find(protocolType) != factoryMap.end())
     {
-        return true;
+        // 检查适配器是否可用（可能返回nullptr）
+        auto factory = factoryMap[protocolType];
+        if (factory)
+        {
+            auto adapter = factory();
+            return adapter != nullptr;
+        }
     }
 
-    // 检查硬编码支持
-    return protocolType == "TCP" || protocolType == "UDP" || protocolType == "WebSocket";
+    return false;
 }
 
 void CommunicationHubFactory::SetDefaultProtocolAdapter(const std::string &protocolType)

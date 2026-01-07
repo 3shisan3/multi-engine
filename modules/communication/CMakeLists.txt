@@ -11,7 +11,10 @@ file(GLOB COMMUNICATE_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp)
 list(APPEND COMMUNICATE_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/protocol/base_adapter.cpp)
 
 if(COMMUNICATE_USE_ASIO)
-    list(APPEND COMMUNICATE_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/protocol/tcp_adapter.cpp)
+    list(APPEND COMMUNICATE_SOURCES
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/protocol/tcp_adapter.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/protocol/udp_adapter.cpp
+    )
 endif()
 if(COMMUNICATE_USE_DDS)
     list(APPEND COMMUNICATE_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/protocol/dds_adapter.cpp)
@@ -26,14 +29,16 @@ if(COMMUNICATE_USE_ASIO)
         ${3RD_DIR}/asio-1.36.0/asio/include
     )
 
+    # 添加 Windows Socket 库链接
+    if(WIN32)
+        target_link_libraries(${PROJECT_NAME} PRIVATE ws2_32 mswsock)
+    endif()
+
     target_compile_definitions(${PROJECT_NAME} PRIVATE USE_ASIO=1)
 endif()
 if(COMMUNICATE_USE_DDS)
     add_subdirectory(${3RD_DIR}/cyclonedds-0.10.5 ${CMAKE_CURRENT_BINARY_DIR}/cyclonedds)
-    target_link_libraries(${PROJECT_NAME}
-        PRIVATE
-            ddsc
-    )
+    target_link_libraries(${PROJECT_NAME} PRIVATE ddsc)
 
     target_compile_definitions(${PROJECT_NAME} PRIVATE USE_DDS=1)
 endif()
