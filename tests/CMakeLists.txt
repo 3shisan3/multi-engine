@@ -1,0 +1,4 @@
+file(GLOB CHILD_DIRS RELATIVE ${CMAKE_CURRENT_LIST_DIR} ${CMAKE_CURRENT_LIST_DIR}/*/)
+foreach(CHILD_DIR ${CHILD_DIRS})
+    add_subdirectory(${CHILD_DIR})
+endforeach()

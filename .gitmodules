@@ -9,3 +9,7 @@
 [submodule "asio"]
 	path = thirdparty/asio-1.36.0
 	url = https://github.com/chriskohlhoff/asio.git
+
+[submodule "nlohmann_json"]
+	path = thirdparty/nlohmann_json-3.12.0
+	url = https://github.com/nlohmann/json.git

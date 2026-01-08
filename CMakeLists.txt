@@ -15,6 +15,7 @@ set(MODULES_DIR ${CMAKE_CURRENT_SOURCE_DIR}/modules)
 set(3RD_DIR ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty)
 
 # 三方依赖包含
+add_subdirectory(${3RD_DIR}/nlohmann_json-3.12.0)
 add_subdirectory(${3RD_DIR}/spdlog-1.17.0)
 # add_subdirectory(${3RD_DIR}/zlib-1.3.1)
 
