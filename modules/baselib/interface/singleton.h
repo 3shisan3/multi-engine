@@ -24,6 +24,16 @@ Version history
 template<class SingletonClass>
 class SingletonTemplate final   // 增加final标记，防止继承使用出现违背单例行为的操作
 {
+private:
+    // 自定义删除器，通过友元关系访问私有析构函数
+    struct Deleter
+    {
+        void operator()(SingletonClass* ptr) const
+        {
+            delete ptr;
+        }
+    };
+
 public:
     // 删除拷贝构造函数和拷贝赋值运算符
     SingletonTemplate(const SingletonTemplate&) = delete;
@@ -68,7 +78,7 @@ private:
     /**
      * @brief 单例的静态指针
      */
-    static std::unique_ptr<SingletonClass> m_s_pSingletonInstance;
+    static std::unique_ptr<SingletonClass, Deleter> m_s_pSingletonInstance;
 
     /**
      * @brief 执行一次触发标志
@@ -77,7 +87,8 @@ private:
 };
 
 template<class SingletonClass>
-std::unique_ptr<SingletonClass> SingletonTemplate<SingletonClass>::m_s_pSingletonInstance;
+std::unique_ptr<SingletonClass, typename SingletonTemplate<SingletonClass>::Deleter>
+    SingletonTemplate<SingletonClass>::m_s_pSingletonInstance;
 
 template<class SingletonClass>
 std::once_flag SingletonTemplate<SingletonClass>::m_s_singleFlag;

@@ -1,5 +1,5 @@
+#include "CommunicationHubFactory.h"
 #include "multi_protocol_communicate.h"
-#include "communicate_hub_factory.h"
 
 #include <algorithm>
 #include <chrono>

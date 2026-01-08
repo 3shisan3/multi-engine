@@ -1,4 +1,4 @@
-#include "communicate_hub_factory.h"
+#include "CommunicationHubFactory.h"
 #include "multi_protocol_communicate.h"
 
 // 包含所有协议适配器头文件

@@ -1,0 +1,7 @@
+{
+    "server_id": "GameDemoServer",
+    "server_name": "通信模块演示服务器",
+    "server_port": 9000,
+    "max_players": 1000,
+    "description": "这是通信枢纽模块在分布式游戏服务器中的应用演示"
+}

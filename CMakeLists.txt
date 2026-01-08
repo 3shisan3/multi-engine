@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.10)
 
 project(simulation_engine)
 
+option(BUILD_TESTING "Build tests" ON)
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -22,4 +24,9 @@ add_subdirectory(${3RD_DIR}/spdlog-1.17.0)
 # 模块包含
 add_subdirectory(${MODULES_DIR}/baselib)
 add_subdirectory(${MODULES_DIR}/communication)
+
+# 测试包含
+if (BUILD_TESTING)
+    add_subdirectory(tests)
+endif()
 
