@@ -129,7 +129,10 @@ private:
     
     // 通信模块实例（核心组件）
     std::shared_ptr<CommunicationModule::ICommunicationHub> commHub_;
-    CommunicationModule::InternalCommunicateHub* internalHub_; 
+    CommunicationModule::InternalCommunicateHub* internalHub_;
+
+    // 消息处理器
+    std::shared_ptr<class GameMessageHandler> messageHandler_;
     
     // 游戏数据（业务数据）
     mutable std::mutex playersMutex_;

@@ -107,12 +107,12 @@ public:
     /**
      * @brief 注册事件处理器
      */
-    bool RegisterEventHandler(IInternalEventHandler *handler);
+    bool RegisterEventHandler(std::shared_ptr<IInternalEventHandler> handler);
 
     /**
      * @brief 注销事件处理器
      */
-    bool UnregisterEventHandler(IInternalEventHandler *handler);
+    bool UnregisterEventHandler(std::shared_ptr<IInternalEventHandler> handler);
 
     /**
      * @brief 发送事件
@@ -184,10 +184,10 @@ private:
     void ProcessEvent(const EventData &event);
     std::string GenerateEventId() const;
 
-    // 事件处理器管理
+    // 事件处理器管理 - 使用weak_ptr避免悬空指针
     mutable std::mutex handlersMutex_;
-    std::unordered_map<std::string, std::vector<IInternalEventHandler *>> eventHandlers_;
-    std::unordered_map<std::string, IInternalEventHandler *> namedHandlers_;
+    std::unordered_map<std::string, std::vector<std::weak_ptr<IInternalEventHandler>>> eventHandlers_;
+    std::unordered_map<std::string, std::weak_ptr<IInternalEventHandler>> namedHandlers_;
 
     // 响应处理器管理
     mutable std::mutex responseHandlersMutex_;

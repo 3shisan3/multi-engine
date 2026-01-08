@@ -381,12 +381,12 @@ public:
     /**
      * @brief 注册数据接收器
      */
-    virtual bool RegisterDataReceiver(IDataReceiver *receiver) = 0;
+    virtual bool RegisterDataReceiver(std::shared_ptr<IDataReceiver> receiver) = 0;
 
     /**
      * @brief 注销数据接收器
      */
-    virtual bool UnregisterDataReceiver(IDataReceiver *receiver) = 0;
+    virtual bool UnregisterDataReceiver(std::shared_ptr<IDataReceiver> receiver) = 0;
 
     /**
      * @brief 获取所有连接的客户端

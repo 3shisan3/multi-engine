@@ -440,7 +440,7 @@ bool MultiProtocolCommunicationHub::SendViaProtocol(const std::string &protocolT
     return success;
 }
 
-bool MultiProtocolCommunicationHub::RegisterDataReceiver(IDataReceiver *receiver)
+bool MultiProtocolCommunicationHub::RegisterDataReceiver(std::shared_ptr<IDataReceiver> receiver)
 {
     if (!receiver)
     {
@@ -478,7 +478,7 @@ bool MultiProtocolCommunicationHub::RegisterDataReceiver(IDataReceiver *receiver
     return success;
 }
 
-bool MultiProtocolCommunicationHub::UnregisterDataReceiver(IDataReceiver *receiver)
+bool MultiProtocolCommunicationHub::UnregisterDataReceiver(std::shared_ptr<IDataReceiver> receiver)
 {
     if (!receiver)
     {
@@ -689,7 +689,7 @@ std::map<std::string, uint64_t> MultiProtocolCommunicationHub::GetStatistics() c
         allStats["topic_subscribers"] = totalSubscribers;
     }
 
-    allStats["data_receivers"] = messageDispatcher_.GetReceivers().size();
+    allStats["data_receivers"] = messageDispatcher_.GetReceiverNames().size();
 
     return allStats;
 }
@@ -1133,21 +1133,10 @@ MultiProtocolCommunicationHub::MessageDispatcher::~MessageDispatcher()
 {
     // 清理所有接收器
     std::lock_guard<std::mutex> lock(receiversMutex_);
-    for (auto &pair : receivers_)
-    {
-        try
-        {
-            pair.second->Cleanup();
-        }
-        catch (...)
-        {
-            // 忽略清理异常
-        }
-    }
     receivers_.clear();
 }
 
-bool MultiProtocolCommunicationHub::MessageDispatcher::AddReceiver(IDataReceiver *receiver)
+bool MultiProtocolCommunicationHub::MessageDispatcher::AddReceiver(std::shared_ptr<IDataReceiver> receiver)
 {
     if (!receiver)
     {
@@ -1157,16 +1146,35 @@ bool MultiProtocolCommunicationHub::MessageDispatcher::AddReceiver(IDataReceiver
     std::lock_guard<std::mutex> lock(receiversMutex_);
 
     std::string name = receiver->GetReceiverName();
-    if (name.empty() || receivers_.find(name) != receivers_.end())
+    if (name.empty())
     {
         return false;
     }
 
-    receivers_[name] = receiver;
+    // 检查是否已存在同名接收器
+    auto it = receivers_.find(name);
+    if (it != receivers_.end()) {
+        // 如果已存在，检查是否还有效
+        if (auto existing = it->second.lock()) {
+            if (existing.get() == receiver.get()) {
+                // 同一个接收器，直接返回成功
+                return true;
+            } else {
+                // 不同接收器，替换
+                it->second = receiver;
+                return true;
+            }
+        } else {
+            // 清理失效的接收器
+            receivers_.erase(it);
+        }
+    }
+
+    receivers_[name] = receiver; // 存储weak_ptr
     return true;
 }
 
-bool MultiProtocolCommunicationHub::MessageDispatcher::RemoveReceiver(IDataReceiver *receiver)
+bool MultiProtocolCommunicationHub::MessageDispatcher::RemoveReceiver(std::shared_ptr<IDataReceiver> receiver)
 {
     if (!receiver)
     {
@@ -1175,10 +1183,27 @@ bool MultiProtocolCommunicationHub::MessageDispatcher::RemoveReceiver(IDataRecei
 
     std::lock_guard<std::mutex> lock(receiversMutex_);
 
-    for (auto it = receivers_.begin(); it != receivers_.end(); ++it)
+    std::string name = receiver->GetReceiverName();
+    if (name.empty())
     {
-        if (it->second == receiver)
+        return false;
+    }
+
+    auto it = receivers_.find(name);
+    if (it != receivers_.end())
+    {
+        // 检查是否是要删除的接收器
+        if (auto existing = it->second.lock())
         {
+            if (existing.get() == receiver.get())
+            {
+                receivers_.erase(it);
+                return true;
+            }
+        }
+        else
+        {
+            // 移除失效的接收器
             receivers_.erase(it);
             return true;
         }
@@ -1191,18 +1216,29 @@ void MultiProtocolCommunicationHub::MessageDispatcher::DispatchMessage(
     const ConnectionContext &context,
     const NetworkMessage &message)
 {
-    std::vector<IDataReceiver *> receiversCopy;
+    std::vector<std::shared_ptr<IDataReceiver>> validReceivers;
 
+    // 收集所有有效的接收器
     {
         std::lock_guard<std::mutex> lock(receiversMutex_);
-        receiversCopy.reserve(receivers_.size());
-        for (const auto &pair : receivers_)
+        
+        for (auto it = receivers_.begin(); it != receivers_.end(); )
         {
-            receiversCopy.push_back(pair.second);
+            if (auto receiver = it->second.lock())
+            {
+                validReceivers.push_back(receiver);
+                ++it;
+            }
+            else
+            {
+                // 自动清理失效的接收器
+                it = receivers_.erase(it);
+            }
         }
     }
 
-    for (auto *receiver : receiversCopy)
+    // 分发消息给所有有效的接收器
+    for (auto& receiver : validReceivers)
     {
         try
         {
@@ -1240,20 +1276,6 @@ void MultiProtocolCommunicationHub::MessageDispatcher::DispatchMessage(
     }
 }
 
-std::vector<IDataReceiver *> MultiProtocolCommunicationHub::MessageDispatcher::GetReceivers() const
-{
-    std::lock_guard<std::mutex> lock(receiversMutex_);
-    std::vector<IDataReceiver *> receivers;
-    receivers.reserve(receivers_.size());
-
-    for (const auto &pair : receivers_)
-    {
-        receivers.push_back(pair.second);
-    }
-
-    return receivers;
-}
-
 std::vector<std::string> MultiProtocolCommunicationHub::MessageDispatcher::GetReceiverNames() const
 {
     std::lock_guard<std::mutex> lock(receiversMutex_);
@@ -1262,7 +1284,10 @@ std::vector<std::string> MultiProtocolCommunicationHub::MessageDispatcher::GetRe
 
     for (const auto &pair : receivers_)
     {
-        names.push_back(pair.first);
+        if (auto receiver = pair.second.lock())
+        {
+            names.push_back(pair.first);
+        }
     }
 
     return names;

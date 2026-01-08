@@ -154,14 +154,14 @@ bool GameServer::InitializeCommunicationHub() {
         }
         
         // 6. 创建并注册消息处理器
-        auto messageHandler = std::make_shared<GameMessageHandler>(this);
+        messageHandler_ = std::make_shared<GameMessageHandler>(this);
         
-        if (!commHub_->RegisterDataReceiver(messageHandler.get())) {
+        if (!commHub_->RegisterDataReceiver(std::dynamic_pointer_cast<CommunicationModule::IDataReceiver>(messageHandler_))) {
             std::cerr << "注册消息处理器失败" << std::endl;
             return false;
         }
         
-        if (!internalHub_->RegisterEventHandler(messageHandler.get())) {
+        if (!internalHub_->RegisterEventHandler(std::dynamic_pointer_cast<CommunicationModule::IInternalEventHandler>(messageHandler_))) {
             std::cerr << "注册内部事件处理器失败" << std::endl;
             return false;
         }

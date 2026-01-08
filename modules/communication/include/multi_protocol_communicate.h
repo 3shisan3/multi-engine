@@ -63,8 +63,8 @@ public:
                          ClientId clientId,
                          const NetworkMessage &message) override;
 
-    bool RegisterDataReceiver(IDataReceiver *receiver) override;
-    bool UnregisterDataReceiver(IDataReceiver *receiver) override;
+    bool RegisterDataReceiver(std::shared_ptr<IDataReceiver> receiver) override;
+    bool UnregisterDataReceiver(std::shared_ptr<IDataReceiver> receiver) override;
 
     std::vector<ConnectionContext> GetConnectedClients() const override;
     std::shared_ptr<ConnectionContext> GetClientContext(ClientId clientId) const override;
@@ -193,17 +193,16 @@ private:
         MessageDispatcher() = default;
         ~MessageDispatcher();
 
-        bool AddReceiver(IDataReceiver *receiver);
-        bool RemoveReceiver(IDataReceiver *receiver);
+        bool AddReceiver(std::shared_ptr<IDataReceiver> receiver);
+        bool RemoveReceiver(std::shared_ptr<IDataReceiver> receiver);
         void DispatchMessage(const ConnectionContext &context, const NetworkMessage &message);
-        std::vector<IDataReceiver *> GetReceivers() const;
         std::vector<std::string> GetReceiverNames() const;
 
         void SetErrorCallback(std::function<void(const std::string &)> callback);
 
     private:
         mutable std::mutex receiversMutex_;
-        std::unordered_map<std::string, IDataReceiver *> receivers_;
+        std::unordered_map<std::string, std::weak_ptr<IDataReceiver>> receivers_;  // 使用weak_ptr避免悬空指针
         std::function<void(const std::string &)> errorCallback_;
     };
 

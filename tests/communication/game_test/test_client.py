@@ -12,7 +12,7 @@ import random
 import sys
 import struct
 import argparse
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional, Tuple, Callable
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
@@ -190,7 +190,7 @@ class GameClient:
             self.connected = False
             return False
     
-    def receive_message(self, timeout: float = 1.0) -> Dict[str, Any]:
+    def receive_message(self, timeout: float = 1.0) -> Optional[Dict[str, Any]]:
         """接收服务器消息"""
         if not self.connected or not self.socket:
             return None
@@ -263,7 +263,7 @@ class GameClient:
         self.log("INFO", "尝试登出")
         return self.send_message("player_logout", logout_data)
     
-    def move(self, x: float = None, y: float = None, z: float = None) -> bool:
+    def move(self, x: Optional[float] = None, y: Optional[float] = None, z: Optional[float] = None) -> bool:
         """玩家移动"""
         if x is None:
             x = self.position["x"] + random.uniform(-50, 50)
@@ -286,7 +286,7 @@ class GameClient:
         self.log("DEBUG", f"移动到位置: ({x:.2f}, {y:.2f}, {z:.2f})")
         return self.send_message("player_move", move_data)
     
-    def chat(self, message: str = None, channel: str = "world") -> bool:
+    def chat(self, message: Optional[str] = None, channel: str = "world") -> bool:
         """玩家聊天"""
         if message is None:
             messages = [
@@ -380,14 +380,16 @@ class GameClient:
         msg_type = data.get("type", "info")
         content = data.get("content", "")
         
-        log_func = {
-            "info": self.log,
-            "warning": lambda level, msg: self.log("WARNING", msg),
-            "error": lambda level, msg: self.log("ERROR", msg),
-            "announcement": lambda level, msg: self.log("INFO", f"【公告】{msg}")
-        }.get(msg_type, self.log)
-        
-        log_func("INFO", f"系统消息: {content}")
+        if msg_type == "info":
+            self.log("INFO", f"系统消息: {content}")
+        elif msg_type == "warning":
+            self.log("WARNING", f"系统警告: {content}")
+        elif msg_type == "error":
+            self.log("ERROR", f"系统错误: {content}")
+        elif msg_type == "announcement":
+            self.log("INFO", f"【公告】{content}")
+        else:
+            self.log("INFO", f"系统消息({msg_type}): {content}")
     
     def process_incoming_messages(self):
         """处理传入消息"""
@@ -410,11 +412,15 @@ class GameClient:
         """模拟游戏行为"""
         self.log("INFO", "开始模拟游戏行为")
         
-        # 行为权重
+        # 定义一个空操作的lambda函数
+        def do_nothing():
+            pass
+        
+        # 行为权重 - 使用元组列表
         actions = [
-            (self.move, 40),      # 40% 移动
-            (self.chat, 25),      # 25% 聊天
-            (lambda: None, 20),   # 20% 空闲
+            (self.move, 40),           # 40% 移动
+            (self.chat, 25),           # 25% 聊天
+            (do_nothing, 20),          # 20% 空闲
             (self.send_heartbeat, 15)  # 15% 心跳
         ]
         
@@ -434,12 +440,16 @@ class GameClient:
                 choice = random.uniform(0, total_weight)
                 
                 cumulative_weight = 0
+                selected_action = do_nothing  # 默认空操作
+                
                 for action, weight in actions:
                     cumulative_weight += weight
                     if choice <= cumulative_weight:
-                        if action != lambda: None:
-                            action()
+                        selected_action = action
                         break
+                
+                # 执行选中的行为
+                selected_action()
                 
                 # 随机延迟
                 delay = random.uniform(0.5, 2.0)
@@ -516,20 +526,24 @@ class GameClient:
         self.log("INFO", f"发送消息数: {self.stats['messages_sent']}")
         self.log("INFO", f"接收消息数: {self.stats['messages_received']}")
         self.log("INFO", f"错误数: {self.stats['errors']}")
-        self.log("INFO", f"消息成功率: {self.stats['messages_sent'] / max(self.message_count, 1) * 100:.1f}%")
+        
+        if self.message_count > 0:
+            success_rate = self.stats['messages_sent'] / self.message_count * 100
+            self.log("INFO", f"消息成功率: {success_rate:.1f}%")
+        
         self.log("INFO", "=" * 50)
 
-def run_single_client(config: ClientConfig):
+def run_single_client(config: ClientConfig) -> Tuple[bool, Dict[str, Any]]:
     """运行单个客户端"""
     client = GameClient(config)
     success = client.run()
     return success, client.stats
 
-def run_multiple_clients(base_config: ClientConfig, num_clients: int):
+def run_multiple_clients(base_config: ClientConfig, num_clients: int) -> Dict[str, Any]:
     """运行多个客户端"""
     import concurrent.futures
     
-    self.log("INFO", f"启动 {num_clients} 个客户端模拟器")
+    print(f"启动 {num_clients} 个客户端模拟器")
     
     clients = []
     results = []
@@ -580,14 +594,49 @@ def run_multiple_clients(base_config: ClientConfig, num_clients: int):
     print("=" * 60)
     print(f"总客户端数: {total_stats['total_clients']}")
     print(f"成功客户端数: {total_stats['successful_clients']}")
-    print(f"成功率: {total_stats['successful_clients'] / total_stats['total_clients'] * 100:.1f}%")
+    
+    if total_stats['total_clients'] > 0:
+        success_rate = total_stats['successful_clients'] / total_stats['total_clients'] * 100
+        print(f"成功率: {success_rate:.1f}%")
+    
     print(f"总发送消息数: {total_stats['total_messages_sent']}")
     print(f"总接收消息数: {total_stats['total_messages_received']}")
     print(f"总错误数: {total_stats['total_errors']}")
     print(f"总连接时间: {total_stats['total_connection_time']:.2f}秒")
+    
+    if total_stats['total_connection_time'] > 0:
+        msg_per_second = total_stats['total_messages_sent'] / total_stats['total_connection_time']
+        print(f"消息发送速率: {msg_per_second:.1f} 条/秒")
+    
     print("=" * 60)
     
     return total_stats
+
+def generate_test_report(stats: Dict[str, Any], config: ClientConfig, output_file: str = "test_report.json"):
+    """生成测试报告"""
+    from datetime import datetime
+    
+    report = {
+        "test_timestamp": datetime.now().isoformat(),
+        "test_config": {
+            "server_host": config.server_host,
+            "server_port": config.server_port,
+            "num_clients": getattr(config, 'num_clients', 1),
+            "duration": config.simulation_duration,
+            "heartbeat_interval": config.heartbeat_interval
+        },
+        "test_results": stats,
+        "performance_metrics": {
+            "messages_per_second": stats.get("total_messages_sent", 0) / max(stats.get("total_connection_time", 1), 1),
+            "success_rate": stats.get("successful_clients", 0) / max(stats.get("total_clients", 1), 1),
+            "error_rate": stats.get("total_errors", 0) / max(stats.get("total_messages_sent", 1), 1)
+        }
+    }
+    
+    with open(output_file, 'w', encoding='utf-8') as f:
+        json.dump(report, f, indent=2, ensure_ascii=False)
+    
+    print(f"测试报告已保存到: {output_file}")
 
 def main():
     """主函数"""
@@ -601,6 +650,7 @@ def main():
     parser.add_argument("--heartbeat", type=int, default=5, help="心跳间隔(秒)")
     parser.add_argument("--reconnect", action="store_true", help="启用自动重连")
     parser.add_argument("--statistics", action="store_true", help="请求统计信息")
+    parser.add_argument("--report", action="store_true", help="生成测试报告")
     
     args = parser.parse_args()
     
@@ -627,7 +677,10 @@ def main():
     
     try:
         if args.clients > 1:
-            run_multiple_clients(base_config, args.clients)
+            stats = run_multiple_clients(base_config, args.clients)
+            if args.report:
+                base_config.num_clients = args.clients  # 临时添加属性
+                generate_test_report(stats, base_config)
         else:
             client = GameClient(base_config)
             
@@ -638,12 +691,16 @@ def main():
                     time.sleep(1)  # 等待响应
                     client.disconnect()
             else:
-                client.run()
-                
+                success = client.run()
+                if args.report and success:
+                    generate_test_report(client.stats, base_config)
+                    
     except KeyboardInterrupt:
         print("\n用户中断测试")
     except Exception as e:
         print(f"测试错误: {e}")
+        import traceback
+        traceback.print_exc()
         return 1
     
     return 0

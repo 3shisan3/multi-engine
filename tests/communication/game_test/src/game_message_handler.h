@@ -1,10 +1,14 @@
 #pragma once
 
-#include "game_server.h"
 #include "CommunicationHub.h"
 #include "InternalCommunicateHub.h"
 #include <nlohmann/json.hpp>
 #include <memory>
+
+// 前向声明，避免循环依赖
+namespace GameDemo {
+    class GameServer;
+}
 
 namespace GameDemo {
 
@@ -13,16 +17,12 @@ using json = nlohmann::json;
 
 /**
  * @brief 游戏消息处理器
- * @note 演示如何：
- * 1. 实现IDataReceiver处理网络消息
- * 2. 实现IInternalEventHandler处理内部事件
- * 3. 使用json解析和构建消息
- * 4. 将消息路由到业务逻辑
  */
 class GameMessageHandler : public CommunicationModule::IDataReceiver,
                            public CommunicationModule::IInternalEventHandler {
 public:
     explicit GameMessageHandler(GameServer* server);
+    virtual ~GameMessageHandler();
     
     // IDataReceiver接口实现
     void OnDataReceived(const CommunicationModule::ConnectionContext& context,
@@ -70,6 +70,14 @@ public:
         return "GameInternalEventHandler";
     }
     
+    // 初始化方法
+    bool Initialize() override {
+        return true;
+    }
+    
+    // 清理方法
+    void Cleanup() override {}
+    
 private:
     // 网络消息处理函数
     void HandlePlayerLogin(const CommunicationModule::ConnectionContext& context,
@@ -92,7 +100,7 @@ private:
     // 辅助函数
     bool ParseJsonMessage(const std::vector<uint8_t>& data, json& result);
     
-    GameServer* server_;  // 非拥有指针
+    GameServer* server_;  // 非拥有指针，由GameServer管理生命周期
 };
 
 } // namespace GameDemo

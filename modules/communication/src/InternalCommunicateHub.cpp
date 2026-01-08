@@ -145,7 +145,7 @@ void InternalCommunicateHub::Shutdown()
     errorCallback_ = nullptr;
 }
 
-bool InternalCommunicateHub::RegisterEventHandler(IInternalEventHandler *handler)
+bool InternalCommunicateHub::RegisterEventHandler(std::shared_ptr<IInternalEventHandler> handler)
 {
     if (!handler || running_)
     {
@@ -155,9 +155,18 @@ bool InternalCommunicateHub::RegisterEventHandler(IInternalEventHandler *handler
     std::lock_guard<std::mutex> lock(handlersMutex_);
 
     // 检查是否已注册
-    if (namedHandlers_.find(handler->GetHandlerName()) != namedHandlers_.end())
+    auto namedIt = namedHandlers_.find(handler->GetHandlerName());
+    if (namedIt != namedHandlers_.end())
     {
-        return false;
+        if (auto existing = namedIt->second.lock())
+        {
+            return false; // 已存在有效处理器
+        }
+        else
+        {
+            // 清理失效的处理器
+            namedHandlers_.erase(namedIt);
+        }
     }
 
     // 获取处理器感兴趣的事件类型
@@ -170,7 +179,17 @@ bool InternalCommunicateHub::RegisterEventHandler(IInternalEventHandler *handler
     // 为每种事件类型注册处理器
     for (const auto &type : interestedTypes)
     {
-        eventHandlers_[type].push_back(handler);
+        // 清理失效的处理器
+        auto& handlers = eventHandlers_[type];
+        handlers.erase(
+            std::remove_if(handlers.begin(), handlers.end(),
+                [](const std::weak_ptr<IInternalEventHandler>& weakHandler) {
+                    return weakHandler.expired();
+                }),
+            handlers.end()
+        );
+        
+        handlers.push_back(handler);
     }
 
     // 保存命名处理器
@@ -183,7 +202,16 @@ bool InternalCommunicateHub::RegisterEventHandler(IInternalEventHandler *handler
         for (const auto &type : interestedTypes)
         {
             auto &handlers = eventHandlers_[type];
-            handlers.erase(std::remove(handlers.begin(), handlers.end(), handler), handlers.end());
+            handlers.erase(
+                std::remove_if(handlers.begin(), handlers.end(),
+                    [handler](const std::weak_ptr<IInternalEventHandler>& weakHandler) {
+                        if (auto sharedHandler = weakHandler.lock()) {
+                            return sharedHandler.get() == handler.get();
+                        }
+                        return false;
+                    }),
+                handlers.end()
+            );
         }
         namedHandlers_.erase(handler->GetHandlerName());
         return false;
@@ -197,7 +225,7 @@ bool InternalCommunicateHub::RegisterEventHandler(IInternalEventHandler *handler
     return true;
 }
 
-bool InternalCommunicateHub::UnregisterEventHandler(IInternalEventHandler *handler)
+bool InternalCommunicateHub::UnregisterEventHandler(std::shared_ptr<IInternalEventHandler> handler)
 {
     if (!handler)
     {
@@ -207,9 +235,19 @@ bool InternalCommunicateHub::UnregisterEventHandler(IInternalEventHandler *handl
     std::lock_guard<std::mutex> lock(handlersMutex_);
 
     // 检查是否已注册
-    if (namedHandlers_.find(handler->GetHandlerName()) == namedHandlers_.end())
+    auto namedIt = namedHandlers_.find(handler->GetHandlerName());
+    if (namedIt == namedHandlers_.end())
     {
         return false;
+    }
+
+    // 检查是否是要删除的处理器
+    if (auto existing = namedIt->second.lock())
+    {
+        if (existing.get() != handler.get())
+        {
+            return false;
+        }
     }
 
     // 清理处理器
@@ -219,7 +257,16 @@ bool InternalCommunicateHub::UnregisterEventHandler(IInternalEventHandler *handl
     for (auto &pair : eventHandlers_)
     {
         auto &handlers = pair.second;
-        handlers.erase(std::remove(handlers.begin(), handlers.end(), handler), handlers.end());
+        handlers.erase(
+            std::remove_if(handlers.begin(), handlers.end(),
+                [handler](const std::weak_ptr<IInternalEventHandler>& weakHandler) {
+                    if (auto sharedHandler = weakHandler.lock()) {
+                        return sharedHandler.get() == handler.get();
+                    }
+                    return false;
+                }),
+            handlers.end()
+        );
     }
 
     // 从命名处理器中移除
@@ -490,7 +537,7 @@ void InternalCommunicateHub::EventProcessingThread()
 
 void InternalCommunicateHub::ProcessEvent(const EventData &event)
 {
-    std::vector<IInternalEventHandler *> handlersToNotify;
+    std::vector<std::shared_ptr<IInternalEventHandler>> handlersToNotify;
 
     // 查找处理该事件类型的处理器
     {
@@ -498,12 +545,28 @@ void InternalCommunicateHub::ProcessEvent(const EventData &event)
         auto it = eventHandlers_.find(event.eventType);
         if (it != eventHandlers_.end())
         {
-            handlersToNotify = it->second;
+            // 收集所有有效的处理器
+            for (const auto& weakHandler : it->second)
+            {
+                if (auto handler = weakHandler.lock())
+                {
+                    handlersToNotify.push_back(handler);
+                }
+            }
+
+            // 清理失效的处理器
+            it->second.erase(
+                std::remove_if(it->second.begin(), it->second.end(),
+                    [](const std::weak_ptr<IInternalEventHandler>& weakHandler) {
+                        return weakHandler.expired();
+                    }),
+                it->second.end()
+            );
         }
     }
 
     // 通知所有处理器
-    for (auto *handler : handlersToNotify)
+    for (auto& handler : handlersToNotify)
     {
         try
         {

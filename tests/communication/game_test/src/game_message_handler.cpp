@@ -1,4 +1,6 @@
 #include "game_message_handler.h"
+#include "game_server.h"
+
 #include <iostream>
 #include <sstream>
 
@@ -11,6 +13,10 @@ GameMessageHandler::GameMessageHandler(GameServer* server)
     }
     
     std::cout << "【消息处理器】创建游戏消息处理器" << std::endl;
+}
+
+GameMessageHandler::~GameMessageHandler() {
+    std::cout << "【消息处理器】销毁游戏消息处理器" << std::endl;
 }
 
 void GameMessageHandler::OnDataReceived(const CommunicationModule::ConnectionContext& context,
@@ -165,7 +171,6 @@ void GameMessageHandler::HandlePlayerChat(const CommunicationModule::ConnectionC
               << "]说: " << chatMsg << std::endl;
     
     // 这里可以实现聊天广播逻辑
-    // 例如：广播给同区域玩家
 }
 
 void GameMessageHandler::HandleHeartbeat(const CommunicationModule::ConnectionContext& context,
@@ -180,9 +185,6 @@ void GameMessageHandler::HandleHeartbeat(const CommunicationModule::ConnectionCo
     uint64_t timestamp = heartbeatData.value("timestamp", 0);
     std::cout << "【心跳】客户端 " << context.clientId 
               << " 时间戳: " << timestamp << std::endl;
-    
-    // 这里可以更新客户端活动时间
-    // 用于检测不活跃连接
 }
 
 void GameMessageHandler::HandleInternalEvent(const std::string& eventType,
@@ -212,9 +214,6 @@ void GameMessageHandler::HandlePlayerStateUpdate(const std::any& data,
         // 演示：处理玩家状态更新事件
         std::cout << "【玩家状态更新】收到状态更新事件" << std::endl;
         
-        // 这里可以实现玩家状态同步逻辑
-        // 例如：跨服务器玩家状态同步
-        
     } catch (const std::exception& e) {
         std::cerr << "【玩家状态更新】处理错误: " << e.what() << std::endl;
     }
@@ -225,9 +224,6 @@ void GameMessageHandler::HandleZoneStateChange(const std::any& data,
     try {
         // 演示：处理区域状态变化事件
         std::cout << "【区域状态变化】收到区域状态变化事件" << std::endl;
-        
-        // 这里可以实现区域状态同步逻辑
-        // 例如：动态加载/卸载区域
         
     } catch (const std::exception& e) {
         std::cerr << "【区域状态变化】处理错误: " << e.what() << std::endl;
