@@ -2,7 +2,7 @@
 Copyright (c) 2022-2030, shisan233@sszc.live.
 SPDX-License-Identifier: MIT
 File:        udp_adapter.h
-Version:     1.0
+Version:     1.1
 Author:      cjx
 start date:
 Description: UDP协议适配器实现
@@ -10,6 +10,7 @@ Version history
 
 [序号]    |   [修改日期]  |   [修改者]   |   [修改内容]
 1             2026-1-05      cjx            create
+2             2026-2-26      cjx            完善SendToClient、Broadcast等实现
 *****************************************************************/
 
 #ifndef UDP_PROTOCOL_ADAPTER_H
@@ -106,6 +107,12 @@ private:
 
         std::vector<ConnectionContext> GetConnectedClients() const;
         size_t GetConnectionCount() const;
+        
+        // udp对象匹配相关方法
+        asio::ip::udp::endpoint GetEndpointForClient(ClientId clientId) const;
+        void UpdateClientSubscription(ClientId clientId, const std::string& topic, bool subscribe);
+        bool RemoveEndpoint(ClientId clientId);
+        void CleanupInactiveEndpoints(int timeoutMs = 30000);
 
         void SetMulticastGroup(const std::string &groupAddress, int ttl);
         void EnableBroadcast(bool enable);
@@ -126,6 +133,8 @@ private:
         mutable std::mutex endpointsMutex_;
         std::unordered_map<std::string, UDPEndpointInfo> endpoints_; // key: address:port
         std::unordered_map<ClientId, std::string> clientIdToEndpoint_;
+        std::unordered_map<ClientId, std::string> clientIdToEndpointKey_; // 冗余映射，用于快速查找
+        std::unordered_map<std::string, std::unordered_set<std::string>> endpointTopics_;
 
         std::function<void(const ConnectionContext &, const NetworkMessage &)> messageCallback_;
         std::function<void(const ConnectionContext &, bool)> connectionCallback_;
