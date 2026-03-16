@@ -23,6 +23,7 @@ add_subdirectory(${3RD_DIR}/spdlog-1.17.0)
 
 # 模块包含
 add_subdirectory(${MODULES_DIR}/baselib)
+add_subdirectory(${MODULES_DIR}/plugin)
 add_subdirectory(${MODULES_DIR}/communication)
 
 # 测试包含
