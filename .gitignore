@@ -2,5 +2,6 @@
 .vscode
 # 编译过程产出
 build
+build-*
 # 编译结果产出
 bin
