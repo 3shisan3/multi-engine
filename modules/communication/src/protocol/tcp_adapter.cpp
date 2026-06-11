@@ -1,6 +1,7 @@
 #include "protocol/tcp_adapter.h"
 
 #include <chrono>
+#include <cctype>
 #include <cstring>
 #include <iomanip>
 #include <iostream>
@@ -403,48 +404,108 @@ std::vector<uint8_t> TCPProtocolAdapter::SerializeTCPMessage(const NetworkMessag
 NetworkMessage TCPProtocolAdapter::DeserializeTCPMessage(const std::vector<uint8_t>& data) const
 {
     NetworkMessage msg;
-    
+    msg.type = MessageType::DATA;
+    msg.timestamp = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+
     if (data.size() < sizeof(uint32_t))
     {
         return msg;
     }
-    
-    // 读取消息头长度
+
     uint32_t headerSize = 0;
     std::memcpy(&headerSize, data.data(), sizeof(headerSize));
-    
+
+    if (data.size() == sizeof(headerSize) + headerSize)
+    {
+        const char* jsonData = reinterpret_cast<const char*>(data.data() + sizeof(headerSize));
+        std::string jsonStr(jsonData, headerSize);
+
+        // 兼容测试客户端的简单协议: [JSON长度(网络字节序)][JSON数据]
+        if (!jsonStr.empty() && jsonStr.front() == '{')
+        {
+            auto getJsonString = [&jsonStr](const std::string& key) -> std::string {
+                std::string pattern = "\"" + key + "\"";
+                size_t pos = jsonStr.find(pattern);
+                if (pos == std::string::npos)
+                {
+                    return "";
+                }
+
+                pos = jsonStr.find(':', pos + pattern.size());
+                if (pos == std::string::npos)
+                {
+                    return "";
+                }
+
+                ++pos;
+                while (pos < jsonStr.size() && std::isspace(static_cast<unsigned char>(jsonStr[pos])))
+                {
+                    ++pos;
+                }
+
+                if (pos >= jsonStr.size() || jsonStr[pos] != '"')
+                {
+                    return "";
+                }
+
+                ++pos;
+                size_t end = jsonStr.find('"', pos);
+                return end == std::string::npos ? "" : jsonStr.substr(pos, end - pos);
+            };
+
+            msg.topic = getJsonString("topic");
+            msg.payload.assign(data.begin() + sizeof(headerSize), data.end());
+            return msg;
+        }
+    }
+
     if (data.size() < sizeof(headerSize) + headerSize)
     {
         return msg;
     }
-    
-    // 解析消息头（简化实现，实际应该使用JSON解析器）
+
+    // 解析本模块序列化格式: [消息头长度(主机字节序)][消息头JSON][有效载荷]
     const char* headerJson = reinterpret_cast<const char*>(data.data() + sizeof(headerSize));
     std::string headerStr(headerJson, headerSize);
-    
-    // 简单解析JSON（实际项目应使用rapidjson等库）
-    // 这里仅作演示
-    size_t pos = headerStr.find("\"message_type\":\"");
-    if (pos != std::string::npos)
-    {
-        pos += 16;
-        size_t end = headerStr.find("\"", pos);
-        if (end != std::string::npos)
+
+    auto getHeaderValue = [&headerStr](const std::string& key) -> std::string {
+        std::string pattern = "\"" + key + "\":\"";
+        size_t pos = headerStr.find(pattern);
+        if (pos == std::string::npos)
         {
-            int type = std::stoi(headerStr.substr(pos, end - pos));
-            msg.type = static_cast<MessageType>(type);
+            return "";
         }
+        pos += pattern.size();
+        size_t end = headerStr.find("\"", pos);
+        return end == std::string::npos ? "" : headerStr.substr(pos, end - pos);
+    };
+
+    std::string typeStr = getHeaderValue("message_type");
+    if (!typeStr.empty())
+    {
+        msg.type = static_cast<MessageType>(std::stoi(typeStr));
     }
-    
-    // 提取有效载荷
+
+    msg.topic = getHeaderValue("topic");
+
+    std::string sourceClient = getHeaderValue("source_client");
+    if (!sourceClient.empty())
+    {
+        msg.sourceClientId = static_cast<ClientId>(std::stoull(sourceClient));
+    }
+
+    std::string targetClient = getHeaderValue("target_client");
+    if (!targetClient.empty())
+    {
+        msg.targetClientId = static_cast<ClientId>(std::stoull(targetClient));
+    }
+
     size_t payloadOffset = sizeof(headerSize) + headerSize;
     if (data.size() > payloadOffset)
     {
         msg.payload.assign(data.begin() + payloadOffset, data.end());
     }
-    
-    msg.timestamp = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
-    
+
     return msg;
 }
 
@@ -687,19 +748,105 @@ void TCPProtocolAdapter::TCPConnection::HandleRead(const asio::error_code& error
     {
         // 更新活动时间
         UpdateLastActivity();
-        
+
         // 处理接收到的数据
         std::vector<uint8_t> data(buffer_.begin(), buffer_.begin() + bytes_transferred);
-        
-        // 这里应该实现更完整的消息解析
-        // 简化处理：直接反序列化为NetworkMessage
+
         NetworkMessage msg;
         msg.payload = data;
         msg.type = MessageType::DATA;
         msg.timestamp = duration_cast<milliseconds>(
             system_clock::now().time_since_epoch()).count();
         msg.sourceClientId = clientId_;
-        
+
+        // 兼容测试客户端协议: [JSON长度(网络字节序)][JSON数据]
+        if (data.size() > sizeof(uint32_t))
+        {
+            uint32_t messageSize = (static_cast<uint32_t>(data[0]) << 24) |
+                                   (static_cast<uint32_t>(data[1]) << 16) |
+                                   (static_cast<uint32_t>(data[2]) << 8) |
+                                   static_cast<uint32_t>(data[3]);
+            if (messageSize == data.size() - sizeof(uint32_t) && data[sizeof(uint32_t)] == '{')
+            {
+                std::string jsonStr(data.begin() + sizeof(uint32_t), data.end());
+                auto topicPos = jsonStr.find("\"topic\"");
+                if (topicPos != std::string::npos)
+                {
+                    topicPos = jsonStr.find(':', topicPos);
+                    if (topicPos != std::string::npos)
+                    {
+                        ++topicPos;
+                        while (topicPos < jsonStr.size() && std::isspace(static_cast<unsigned char>(jsonStr[topicPos])))
+                        {
+                            ++topicPos;
+                        }
+                        if (topicPos < jsonStr.size() && jsonStr[topicPos] == '"')
+                        {
+                            ++topicPos;
+                            auto end = jsonStr.find('"', topicPos);
+                            if (end != std::string::npos)
+                            {
+                                msg.topic = jsonStr.substr(topicPos, end - topicPos);
+                            }
+                        }
+                    }
+                }
+
+                auto dataPos = jsonStr.find("\"data\"");
+                if (dataPos != std::string::npos)
+                {
+                    dataPos = jsonStr.find(':', dataPos);
+                    if (dataPos != std::string::npos)
+                    {
+                        dataPos = jsonStr.find('{', dataPos);
+                        if (dataPos != std::string::npos)
+                        {
+                            int depth = 0;
+                            bool inString = false;
+                            bool escaped = false;
+                            for (size_t i = dataPos; i < jsonStr.size(); ++i)
+                            {
+                                char ch = jsonStr[i];
+                                if (escaped)
+                                {
+                                    escaped = false;
+                                    continue;
+                                }
+                                if (ch == '\\' && inString)
+                                {
+                                    escaped = true;
+                                    continue;
+                                }
+                                if (ch == '"')
+                                {
+                                    inString = !inString;
+                                    continue;
+                                }
+                                if (!inString && ch == '{')
+                                {
+                                    ++depth;
+                                }
+                                else if (!inString && ch == '}')
+                                {
+                                    --depth;
+                                    if (depth == 0)
+                                    {
+                                        msg.payload.assign(jsonStr.begin() + dataPos, jsonStr.begin() + i + 1);
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (msg.payload.empty())
+                {
+                    msg.payload.assign(data.begin() + sizeof(uint32_t), data.end());
+                }
+            }
+        }
+
         // 调用消息回调
         if (messageCallback_)
         {

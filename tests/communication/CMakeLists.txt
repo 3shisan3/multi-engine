@@ -17,7 +17,18 @@ target_link_libraries(${TEST_PROJECT_NAME} PRIVATE
     nlohmann_json
 )
 
-if(NOT TEST_COMMUNICATION_USE_PYTHON)
+if(TEST_COMMUNICATION_USE_PYTHON)
+    find_package(Python3 COMPONENTS Interpreter)
+    if(Python3_Interpreter_FOUND)
+        add_test(NAME communication_smoke_test
+            COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/communication_smoke_test.py
+                --server $<TARGET_FILE:${TEST_PROJECT_NAME}>
+                --config ${CMAKE_CURRENT_SOURCE_DIR}/${TEST_PROJECT_NAME}/config/server_config.json
+                --client ${CMAKE_CURRENT_SOURCE_DIR}/${TEST_PROJECT_NAME}/test_client.py
+        )
+    endif()
+else()
     # 创建客户端测试可执行文件
     add_executable(client_simulator
         ${CMAKE_CURRENT_SOURCE_DIR}/${TEST_PROJECT_NAME}/client_simulator.cpp
