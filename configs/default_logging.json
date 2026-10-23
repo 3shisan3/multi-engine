@@ -1,0 +1,11 @@
+{
+    "log_directory": "logs",
+    "logger_name": "multi_engine",
+    "max_file_size_mb": 50,
+    "max_files": 5,
+    "console_level": "info",
+    "file_level": "debug",
+    "enable_console": true,
+    "enable_file": true,
+    "enable_async": false
+}

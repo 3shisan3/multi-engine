@@ -1,0 +1,20 @@
+{
+    "protocols": [
+        {
+            "protocol": "TCP",
+            "server_address": "0.0.0.0",
+            "server_port": 9000,
+            "heartbeat_interval_ms": 1000,
+            "connection_timeout_ms": 5000,
+            "max_clients": 500,
+            "enable_encryption": false,
+            "enable_compression": false
+        },
+        {
+            "protocol": "UDP",
+            "server_address": "0.0.0.0",
+            "server_port": 9001,
+            "max_clients": 500
+        }
+    ]
+}

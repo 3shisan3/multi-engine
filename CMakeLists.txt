@@ -2,17 +2,11 @@ cmake_minimum_required(VERSION 3.10)
 
 project(simulation_engine)
 
-option(BUILD_TESTING "Build tests" ON)
-option(ME_ENABLE_LOGGING "Enable logging module" ON)
-option(ME_ENABLE_CONFIG "Enable config module" ON)
-option(ME_ENABLE_EVENT "Enable event module" ON)
-option(ME_ENABLE_METRICS "Enable metrics module" ON)
-option(ME_ENABLE_SERIALIZATION "Enable serialization module" ON)
-option(ME_ENABLE_RESOURCE "Enable resource module" ON)
-option(ME_ENABLE_SCHEDULER "Enable scheduler module" ON)
-option(ME_ENABLE_RUNTIME "Enable runtime module" ON)
-option(ME_ENABLE_PLUGIN "Enable plugin module" ON)
-option(ME_ENABLE_COMMUNICATION "Enable communication module" ON)
+# 构建脚本分别收敛到 cmake/ 目录，便于维护与复用
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+
+include(options)
+include(dependencies)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -23,61 +17,11 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(SUBLIB_OUT_PATH ${CMAKE_BINARY_DIR})
 
-# 基础变量定义
-set(MODULES_DIR ${CMAKE_CURRENT_SOURCE_DIR}/modules)
-set(3RD_DIR ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty)
-
-# 三方依赖包含
-add_subdirectory(${3RD_DIR}/nlohmann_json-3.12.0)
-add_subdirectory(${3RD_DIR}/spdlog-1.17.0)
-# add_subdirectory(${3RD_DIR}/zlib-1.3.1)
-
-# 模块包含
-add_subdirectory(${MODULES_DIR}/baselib)
-
-if (ME_ENABLE_LOGGING)
-    add_subdirectory(${MODULES_DIR}/logging)
-endif()
-
-if (ME_ENABLE_CONFIG)
-    add_subdirectory(${MODULES_DIR}/config)
-endif()
-
-if (ME_ENABLE_EVENT)
-    add_subdirectory(${MODULES_DIR}/event)
-endif()
-
-if (ME_ENABLE_METRICS)
-    add_subdirectory(${MODULES_DIR}/metrics)
-endif()
-
-if (ME_ENABLE_SERIALIZATION)
-    add_subdirectory(${MODULES_DIR}/serialization)
-endif()
-
-if (ME_ENABLE_RESOURCE)
-    add_subdirectory(${MODULES_DIR}/resource)
-endif()
-
-if (ME_ENABLE_SCHEDULER)
-    add_subdirectory(${MODULES_DIR}/scheduler)
-endif()
-
-if (ME_ENABLE_RUNTIME)
-    add_subdirectory(${MODULES_DIR}/runtime)
-endif()
-
-if (ME_ENABLE_PLUGIN)
-    add_subdirectory(${MODULES_DIR}/plugin)
-endif()
-
-if (ME_ENABLE_COMMUNICATION)
-    add_subdirectory(${MODULES_DIR}/communication)
-endif()
+# 框架模块
+include(modules)
 
 # 测试包含
 if (BUILD_TESTING)
     enable_testing()
     add_subdirectory(tests)
 endif()
-

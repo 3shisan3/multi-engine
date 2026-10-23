@@ -18,7 +18,15 @@
 
 ```text
 multi-engine
-├─ CMakeLists.txt          # 顶层构建，支持模块开关
+├─ CMakeLists.txt          # 顶层入口（精简后仅做编排）
+├─ cmake/                  # 构建脚本
+│  ├─ options.cmake        #   模块开关
+│  ├─ dependencies.cmake   #   三方依赖
+│  └─ modules.cmake        #   模块包含
+├─ configs/                # 默认配置
+│  ├─ default_engine.json
+│  ├─ default_logging.json
+│  └─ default_communication.json
 ├─ modules/                # 框架模块
 │  ├─ baselib/             # 基础层：单例、线程池、模块生命周期接口
 │  ├─ logging/             # 基于 spdlog 的日志封装
@@ -112,6 +120,14 @@ cmake --build build -j$(nproc)
 | `COMMUNICATE_USE_DDS` | ON | 使用 DDS（依赖 CycloneDDS） |
 
 所有构建产物统一输出到 `<build>/bin`，保证可执行文件与动态库同目录，避免运行时查找 DLL 失败。
+
+顶层 `CMakeLists.txt` 只做编排，具体构建逻辑拆分在 `cmake/` 目录：
+
+| 脚本 | 职责 |
+| --- | --- |
+| `cmake/options.cmake` | 模块开关（`ME_ENABLE_*`） |
+| `cmake/dependencies.cmake` | 三方依赖引入 |
+| `cmake/modules.cmake` | 按开关包含框架模块 |
 
 ---
 
