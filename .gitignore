@@ -6,3 +6,5 @@ build-*
 build_*
 # 编译结果产出
 bin
+# 运行时日志
+logs

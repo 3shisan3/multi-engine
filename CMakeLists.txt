@@ -25,3 +25,8 @@ if (BUILD_TESTING)
     enable_testing()
     add_subdirectory(tests)
 endif()
+
+# 示例工程
+if (ME_BUILD_EXAMPLES)
+    add_subdirectory(examples)
+endif()

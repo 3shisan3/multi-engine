@@ -27,6 +27,11 @@ multi-engine
 │  ├─ default_engine.json
 │  ├─ default_logging.json
 │  └─ default_communication.json
+├─ examples/               # 示例工程
+│  ├─ minimal_app/         #   最小应用（runtime/config/logging/event/metrics）
+│  └─ plugin_demo/         #   插件开发示例（示例插件 + 宿主）
+├─ templates/              # 工程模板
+│  └─ module_template/     #   模块骨架（interface/include/src）
 ├─ modules/                # 框架模块
 │  ├─ baselib/             # 基础层：单例、线程池、模块生命周期接口
 │  ├─ logging/             # 基于 spdlog 的日志封装
@@ -118,6 +123,7 @@ cmake --build build -j$(nproc)
 | `ME_ENABLE_COMMUNICATION` | ON | 通信模块 |
 | `COMMUNICATE_USE_ASIO` | ON | 使用 asio 实现 TCP/UDP |
 | `COMMUNICATE_USE_DDS` | ON | 使用 DDS（依赖 CycloneDDS） |
+| `ME_BUILD_EXAMPLES` | OFF | 是否构建示例工程 |
 
 所有构建产物统一输出到 `<build>/bin`，保证可执行文件与动态库同目录，避免运行时查找 DLL 失败。
 
