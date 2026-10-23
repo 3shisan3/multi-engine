@@ -23,26 +23,6 @@ if (ME_ENABLE_EVENT)
     add_subdirectory(${MODULES_DIR}/event)
 endif()
 
-if (ME_ENABLE_METRICS)
-    add_subdirectory(${MODULES_DIR}/metrics)
-endif()
-
-if (ME_ENABLE_SERIALIZATION)
-    add_subdirectory(${MODULES_DIR}/serialization)
-endif()
-
-if (ME_ENABLE_RESOURCE)
-    add_subdirectory(${MODULES_DIR}/resource)
-endif()
-
-if (ME_ENABLE_SIMULATION)
-    add_subdirectory(${MODULES_DIR}/simulation)
-endif()
-
-if (ME_ENABLE_WORLD)
-    add_subdirectory(${MODULES_DIR}/world)
-endif()
-
 # 运行时层
 if (ME_ENABLE_SCHEDULER)
     add_subdirectory(${MODULES_DIR}/scheduler)

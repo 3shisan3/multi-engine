@@ -41,3 +41,11 @@ else()
         ${3RD_DIR}/asio-1.36.0/asio/include
     )
 endif()
+
+# 消息编解码测试
+add_executable(message_codec_test ${CMAKE_CURRENT_SOURCE_DIR}/codec_test/message_codec_test.cpp)
+target_link_libraries(message_codec_test PRIVATE
+    baselib
+    communicate_module
+)
+add_test(NAME message_codec_test COMMAND message_codec_test)

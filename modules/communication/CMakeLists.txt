@@ -8,7 +8,10 @@ option(COMMUNICATE_USE_DDS "Use DDS protocol support" ON)
 
 # 源文件
 file(GLOB COMMUNICATE_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp)
-list(APPEND COMMUNICATE_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/protocol/base_adapter.cpp)
+list(APPEND COMMUNICATE_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/protocol/base_adapter.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/protocol/message_codec.cpp
+)
 
 if(COMMUNICATE_USE_ASIO)
     list(APPEND COMMUNICATE_SOURCES

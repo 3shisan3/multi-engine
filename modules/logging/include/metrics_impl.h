@@ -1,12 +1,12 @@
-#ifndef ME_METRICS_IMPL_H
-#define ME_METRICS_IMPL_H
+#ifndef ME_LOGGING_METRICS_IMPL_H
+#define ME_LOGGING_METRICS_IMPL_H
 
 #include "Metrics.h"
 
 #include <map>
 #include <mutex>
 
-namespace MetricsModule
+namespace LogModule
 {
 
 /**
@@ -36,6 +36,6 @@ private:
     std::map<std::string, MetricValue> metrics_;
 };
 
-} // namespace MetricsModule
+} // namespace LogModule
 
-#endif // ME_METRICS_IMPL_H
+#endif // ME_LOGGING_METRICS_IMPL_H

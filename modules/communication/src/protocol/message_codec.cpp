@@ -1,17 +1,17 @@
 /***************************************************************
 Copyright (c) 2022-2030, shisan233@sszc.live.
 SPDX-License-Identifier: MIT
-File:        Serialization.cpp
-Description: 消息编解码模块实现（小端序二进制协议）
+File:        message_codec.cpp
+Description: 通信消息编解码实现（小端序二进制协议）
 
 *****************************************************************/
 
-#include "serialization_impl.h"
+#include "protocol/message_codec_impl.h"
 
 #include <cstring>
 #include <type_traits>
 
-namespace SerializationModule
+namespace CommunicationModule
 {
 
 // ==================== 写入器 ====================
@@ -35,45 +35,14 @@ void BinaryWriterImpl::WriteBool(bool value)
     buffer_.push_back(value ? 1 : 0);
 }
 
-void BinaryWriterImpl::WriteInt8(int8_t value)
-{
-    Append(value);
-}
-
-void BinaryWriterImpl::WriteUInt8(uint8_t value)
-{
-    Append(value);
-}
-
-void BinaryWriterImpl::WriteInt16(int16_t value)
-{
-    Append(value);
-}
-
-void BinaryWriterImpl::WriteUInt16(uint16_t value)
-{
-    Append(value);
-}
-
-void BinaryWriterImpl::WriteInt32(int32_t value)
-{
-    Append(value);
-}
-
-void BinaryWriterImpl::WriteUInt32(uint32_t value)
-{
-    Append(value);
-}
-
-void BinaryWriterImpl::WriteInt64(int64_t value)
-{
-    Append(value);
-}
-
-void BinaryWriterImpl::WriteUInt64(uint64_t value)
-{
-    Append(value);
-}
+void BinaryWriterImpl::WriteInt8(int8_t value) { Append(value); }
+void BinaryWriterImpl::WriteUInt8(uint8_t value) { Append(value); }
+void BinaryWriterImpl::WriteInt16(int16_t value) { Append(value); }
+void BinaryWriterImpl::WriteUInt16(uint16_t value) { Append(value); }
+void BinaryWriterImpl::WriteInt32(int32_t value) { Append(value); }
+void BinaryWriterImpl::WriteUInt32(uint32_t value) { Append(value); }
+void BinaryWriterImpl::WriteInt64(int64_t value) { Append(value); }
+void BinaryWriterImpl::WriteUInt64(uint64_t value) { Append(value); }
 
 void BinaryWriterImpl::WriteFloat(float value)
 {
@@ -122,7 +91,7 @@ bool BinaryReaderImpl::ReadBytesRaw(uint8_t* out, size_t length)
     }
     if (position_ + length > data_.size())
     {
-        MarkError();
+        error_ = true;
         return false;
     }
 
@@ -144,7 +113,7 @@ bool BinaryReaderImpl::ReadRaw(T& value)
 
     if (position_ + sizeof(T) > data_.size())
     {
-        MarkError();
+        error_ = true;
         return false;
     }
 
@@ -190,75 +159,16 @@ bool BinaryReaderImpl::ReadBool()
     return value != 0;
 }
 
-int8_t BinaryReaderImpl::ReadInt8()
-{
-    int8_t value = 0;
-    ReadRaw(value);
-    return value;
-}
-
-uint8_t BinaryReaderImpl::ReadUInt8()
-{
-    uint8_t value = 0;
-    ReadRaw(value);
-    return value;
-}
-
-int16_t BinaryReaderImpl::ReadInt16()
-{
-    int16_t value = 0;
-    ReadRaw(value);
-    return value;
-}
-
-uint16_t BinaryReaderImpl::ReadUInt16()
-{
-    uint16_t value = 0;
-    ReadRaw(value);
-    return value;
-}
-
-int32_t BinaryReaderImpl::ReadInt32()
-{
-    int32_t value = 0;
-    ReadRaw(value);
-    return value;
-}
-
-uint32_t BinaryReaderImpl::ReadUInt32()
-{
-    uint32_t value = 0;
-    ReadRaw(value);
-    return value;
-}
-
-int64_t BinaryReaderImpl::ReadInt64()
-{
-    int64_t value = 0;
-    ReadRaw(value);
-    return value;
-}
-
-uint64_t BinaryReaderImpl::ReadUInt64()
-{
-    uint64_t value = 0;
-    ReadRaw(value);
-    return value;
-}
-
-float BinaryReaderImpl::ReadFloat()
-{
-    float value = 0.0f;
-    ReadRaw(value);
-    return value;
-}
-
-double BinaryReaderImpl::ReadDouble()
-{
-    double value = 0.0;
-    ReadRaw(value);
-    return value;
-}
+int8_t BinaryReaderImpl::ReadInt8() { int8_t v = 0; ReadRaw(v); return v; }
+uint8_t BinaryReaderImpl::ReadUInt8() { uint8_t v = 0; ReadRaw(v); return v; }
+int16_t BinaryReaderImpl::ReadInt16() { int16_t v = 0; ReadRaw(v); return v; }
+uint16_t BinaryReaderImpl::ReadUInt16() { uint16_t v = 0; ReadRaw(v); return v; }
+int32_t BinaryReaderImpl::ReadInt32() { int32_t v = 0; ReadRaw(v); return v; }
+uint32_t BinaryReaderImpl::ReadUInt32() { uint32_t v = 0; ReadRaw(v); return v; }
+int64_t BinaryReaderImpl::ReadInt64() { int64_t v = 0; ReadRaw(v); return v; }
+uint64_t BinaryReaderImpl::ReadUInt64() { uint64_t v = 0; ReadRaw(v); return v; }
+float BinaryReaderImpl::ReadFloat() { float v = 0.0f; ReadRaw(v); return v; }
+double BinaryReaderImpl::ReadDouble() { double v = 0.0; ReadRaw(v); return v; }
 
 std::string BinaryReaderImpl::ReadString()
 {
@@ -270,7 +180,7 @@ std::string BinaryReaderImpl::ReadString()
 
     if (position_ + length > data_.size())
     {
-        MarkError();
+        error_ = true;
         return "";
     }
 
@@ -289,7 +199,7 @@ std::vector<uint8_t> BinaryReaderImpl::ReadBytes()
 
     if (position_ + length > data_.size())
     {
-        MarkError();
+        error_ = true;
         return {};
     }
 
@@ -320,4 +230,4 @@ std::shared_ptr<IBinaryReader> CreateBinaryReader(const std::vector<uint8_t>& da
     return std::make_shared<BinaryReaderImpl>(data);
 }
 
-} // namespace SerializationModule
+} // namespace CommunicationModule

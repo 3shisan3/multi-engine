@@ -5,7 +5,7 @@ File:        Metrics.h
 Version:     1.0
 Author:      cjx
 start date: 2026-10-23
-Description: 指标统计模块对外接口
+Description: 指标统计接口（日志模块内聚能力）
 Version history
 
 [序号]    |   [修改日期]  |   [修改者]   |   [修改内容]
@@ -13,15 +13,15 @@ Version history
 
 *****************************************************************/
 
-#ifndef ME_METRICS_METRICS_H
-#define ME_METRICS_METRICS_H
+#ifndef ME_LOGGING_METRICS_H
+#define ME_LOGGING_METRICS_H
 
 #include <cstdint>
 #include <map>
 #include <memory>
 #include <string>
 
-namespace MetricsModule
+namespace LogModule
 {
 
 /**
@@ -96,7 +96,7 @@ std::shared_ptr<IMetrics> CreateMetrics();
  * 典型用法：
  * @code
  *   {
- *       MetricsModule::ScopedTimer timer(metrics, "step.cost");
+ *       LogModule::ScopedTimer timer(metrics, "step.cost");
  *       DoWork();
  *   }
  * @endcode
@@ -116,6 +116,6 @@ private:
     int64_t start_;
 };
 
-} // namespace MetricsModule
+} // namespace LogModule
 
-#endif // ME_METRICS_METRICS_H
+#endif // ME_LOGGING_METRICS_H

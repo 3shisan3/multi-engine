@@ -11,6 +11,7 @@ target_link_libraries(${PROJECT_NAME}
         spdlog::spdlog
     PRIVATE
         baselib
+        nlohmann_json
 )
 
 target_include_directories(${PROJECT_NAME}

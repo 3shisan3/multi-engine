@@ -1,13 +1,13 @@
-#ifndef ME_SERIALIZATION_IMPL_H
-#define ME_SERIALIZATION_IMPL_H
+#ifndef ME_COMMUNICATION_MESSAGE_CODEC_IMPL_H
+#define ME_COMMUNICATION_MESSAGE_CODEC_IMPL_H
 
-#include "Serialization.h"
+#include "MessageCodec.h"
 
 #include <cstring>
 #include <string>
 #include <vector>
 
-namespace SerializationModule
+namespace CommunicationModule
 {
 
 class BinaryWriterImpl : public IBinaryWriter
@@ -35,8 +35,6 @@ public:
 private:
     template <typename T>
     void Append(const T& value);
-
-    void MarkError() { error_ = true; }
 
     std::vector<uint8_t> buffer_;
     bool error_ = false;
@@ -70,13 +68,12 @@ private:
     bool ReadRaw(T& value);
 
     bool ReadBytesRaw(uint8_t* out, size_t length);
-    void MarkError() { error_ = true; }
 
     std::vector<uint8_t> data_;
     size_t position_ = 0;
     bool error_ = false;
 };
 
-} // namespace SerializationModule
+} // namespace CommunicationModule
 
-#endif // ME_SERIALIZATION_IMPL_H
+#endif // ME_COMMUNICATION_MESSAGE_CODEC_IMPL_H

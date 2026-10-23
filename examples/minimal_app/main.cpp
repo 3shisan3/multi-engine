@@ -99,8 +99,8 @@ int main()
     ME_LOG_INFO(LogModule::LogCategory::SYSTEM, "minimal_app",
                 "app name = {}", config->GetString("application.name"));
 
-    // 3. 指标统计
-    auto metrics = MetricsModule::CreateMetrics();
+    // 3. 指标统计（已内聚到 logging 模块）
+    auto metrics = LogModule::CreateMetrics();
     metrics->Gauge("demo.workers", 4);
 
     // 4. 事件总线

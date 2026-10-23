@@ -1,11 +1,11 @@
 /***************************************************************
 Copyright (c) 2022-2030, shisan233@sszc.live.
 SPDX-License-Identifier: MIT
-File:        Serialization.h
+File:        MessageCodec.h
 Version:     1.0
 Author:      cjx
 start date: 2026-10-23
-Description: 消息编解码模块对外接口
+Description: 通信消息编解码接口
 Version history
 
 [序号]    |   [修改日期]  |   [修改者]   |   [修改内容]
@@ -13,15 +13,15 @@ Version history
 
 *****************************************************************/
 
-#ifndef ME_SERIALIZATION_SERIALIZATION_H
-#define ME_SERIALIZATION_SERIALIZATION_H
+#ifndef ME_COMMUNICATION_MESSAGE_CODEC_H
+#define ME_COMMUNICATION_MESSAGE_CODEC_H
 
 #include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
 
-namespace SerializationModule
+namespace CommunicationModule
 {
 
 /**
@@ -117,6 +117,6 @@ std::shared_ptr<IBinaryWriter> CreateBinaryWriter();
  */
 std::shared_ptr<IBinaryReader> CreateBinaryReader(const std::vector<uint8_t>& data);
 
-} // namespace SerializationModule
+} // namespace CommunicationModule
 
-#endif // ME_SERIALIZATION_SERIALIZATION_H
+#endif // ME_COMMUNICATION_MESSAGE_CODEC_H

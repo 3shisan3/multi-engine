@@ -7,7 +7,6 @@ target_link_libraries(minimal_app PRIVATE
     logging
     config
     event
-    metrics
     runtime
 )
 

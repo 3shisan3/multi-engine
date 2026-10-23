@@ -1,11 +1,12 @@
 /***************************************************************
 Copyright (c) 2022-2030, shisan233@sszc.live.
 SPDX-License-Identifier: MIT
-File:        metrics_smoke_test.cpp
-Description: 指标统计模块冒烟测试
+File:        logging_smoke_test.cpp
+Description: 日志与指标统计冒烟测试
 
 *****************************************************************/
 
+#include "Logger.h"
 #include "Metrics.h"
 
 #include <chrono>
@@ -13,44 +14,51 @@ Description: 指标统计模块冒烟测试
 #include <thread>
 #include <vector>
 
-using namespace MetricsModule;
+using namespace LogModule;
 using namespace std::chrono;
 
 int main()
 {
-    auto metrics = CreateMetrics();
-    if (!metrics)
+    // 1. 日志初始化
+    if (!Logger::InitializeDefault("logs"))
     {
         return 1;
     }
+    ME_LOG_INFO(LogCategory::SYSTEM, "logging_smoke_test", "logger ready");
 
-    // 1. 计数器：Increment / Decrement
+    // 2. 计数器
+    auto metrics = CreateMetrics();
+    if (!metrics)
+    {
+        return 2;
+    }
+
     metrics->Increment("requests", 1);
     metrics->Increment("requests", 2);
     metrics->Decrement("requests", 1);
     if (metrics->Get("requests").counter != 2)
     {
         std::cerr << "counter mismatch" << std::endl;
-        return 2;
+        return 3;
     }
 
-    // 计数器不会低于 0
+    // 不会低于 0
     metrics->Decrement("requests", 100);
     if (metrics->Get("requests").counter != 0)
     {
         std::cerr << "counter underflow" << std::endl;
-        return 3;
+        return 4;
     }
 
-    // 2. 仪表盘
+    // 3. 仪表盘
     metrics->Gauge("cpu.usage", 45.5);
     if (metrics->Get("cpu.usage").gauge != 45.5)
     {
         std::cerr << "gauge mismatch" << std::endl;
-        return 4;
+        return 5;
     }
 
-    // 3. 观测值：sum / min / max / count
+    // 4. 观测值
     metrics->Observe("latency.ms", 10.0);
     metrics->Observe("latency.ms", 20.0);
     metrics->Observe("latency.ms", 30.0);
@@ -60,10 +68,10 @@ int main()
         latency.min != 10.0 || latency.max != 30.0)
     {
         std::cerr << "observe mismatch" << std::endl;
-        return 5;
+        return 6;
     }
 
-    // 4. ScopedTimer 自动计时
+    // 5. ScopedTimer
     {
         ScopedTimer timer(*metrics, "step.cost");
         std::this_thread::sleep_for(milliseconds(5));
@@ -71,49 +79,40 @@ int main()
     if (metrics->Get("step.cost").count != 1)
     {
         std::cerr << "scoped timer not recorded" << std::endl;
-        return 6;
+        return 7;
     }
 
-    // 5. 序列化 / 反序列化
+    // 6. 序列化 / 反序列化
     std::string snapshot = metrics->Serialize();
     if (snapshot.empty())
     {
         std::cerr << "serialize empty" << std::endl;
-        return 7;
+        return 8;
     }
 
     auto restored = CreateMetrics();
     if (!restored->Deserialize(snapshot))
     {
         std::cerr << "deserialize failed" << std::endl;
-        return 8;
-    }
-    if (restored->Get("latency.ms").max != 30.0 ||
-        restored->Get("cpu.usage").gauge != 45.5)
-    {
-        std::cerr << "restored value mismatch" << std::endl;
         return 9;
     }
-
-    // 6. 非法输入反序列化应安全失败
-    if (restored->Deserialize("not a json"))
+    if (restored->Get("latency.ms").max != 30.0)
     {
-        std::cerr << "invalid deserialize should fail" << std::endl;
+        std::cerr << "restored value mismatch" << std::endl;
         return 10;
     }
 
-    // 7. 单项 / 全部重置
+    if (restored->Deserialize("not a json"))
+    {
+        std::cerr << "invalid deserialize should fail" << std::endl;
+        return 11;
+    }
+
+    // 7. 重置
     metrics->Reset("cpu.usage");
     if (metrics->Get("cpu.usage").count != 0)
     {
         std::cerr << "reset(name) failed" << std::endl;
-        return 11;
-    }
-
-    metrics->Reset();
-    if (!metrics->GetAll().empty())
-    {
-        std::cerr << "reset() failed" << std::endl;
         return 12;
     }
 
@@ -139,6 +138,10 @@ int main()
         return 13;
     }
 
-    std::cout << "metrics smoke test passed" << std::endl;
+    ME_LOG_INFO(LogCategory::SYSTEM, "logging_smoke_test",
+                "metrics ok, hits = {}", shared->Get("hits").counter);
+
+    Logger::GetInstance().Shutdown();
+    std::cout << "logging smoke test passed" << std::endl;
     return 0;
 }

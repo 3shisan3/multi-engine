@@ -161,7 +161,7 @@ modules
 │ Common Capability Layer                       │
 │ 通用工程能力                                  │
 │ communication / plugin / logging / config     │
-│ event / metrics / serialization / resource    │
+│ event                                          │
 └──────────────────────────────────────────────┘
                     ↓
 ┌──────────────────────────────────────────────┐
@@ -211,21 +211,10 @@ multi-engine
 │  ├─ logging
 │  ├─ config
 │  ├─ event
-│  ├─ metrics
-│  ├─ serialization
 │  ├─ communication
 │  ├─ plugin
 │  ├─ runtime
-│  ├─ scheduler
-│  ├─ resource
-│  │
-│  ├─ simulation
-│  ├─ world
-│  ├─ entity
-│  ├─ environment
-│  ├─ data
-│  ├─ editor
-│  └─ replay
+│  └─ scheduler
 │
 ├─ examples
 │  ├─ minimal_app
@@ -548,21 +537,19 @@ ModuleManager::ShutdownAll
 ```text
 baselib
   ↓
-logging / config / event / metrics / serialization / resource
+logging / config / event
   ↓
 runtime / scheduler / communication / plugin
-  ↓
-simulation
-  ↓
-world / data / environment / entity / editor / replay
 ```
+
+> 说明：`simulation` / `world` / `entity` / `environment` 等属于**可选领域扩展**，模板仓库默认不包含，业务工程可按需派生。
 
 详细原则：
 
 - `baselib` 不依赖其他内部模块。
 - `logging/config/event` 是通用能力，可被上层模块使用。
 - `runtime` 负责组合模块，不承载具体业务模型。
-- `communication` 不定义仿真领域命令。
+- `communication` 不定义业务命令。
 - `world/entity/environment/data/editor` 属于仿真领域，不应反向污染通用框架层。
 - 示例应用负责组合模块，而不是定义基础能力。
 
@@ -656,20 +643,10 @@ option(ME_ENABLE_PLUGIN "Enable plugin module" ON)
 option(ME_ENABLE_COMMUNICATION "Enable communication module" ON)
 ```
 
-后续推荐补充：
-
-```cmake
-option(ME_ENABLE_METRICS "Enable metrics module" ON)
-option(ME_ENABLE_SERIALIZATION "Enable serialization module" ON)
-option(ME_ENABLE_RESOURCE "Enable resource module" ON)
-
-option(ME_ENABLE_SIMULATION "Enable simulation domain modules" ON)
-option(ME_ENABLE_WORLD "Enable world model module" ON)
-option(ME_ENABLE_ENTITY "Enable entity module" ON)
-option(ME_ENABLE_ENVIRONMENT "Enable environment module" ON)
-option(ME_ENABLE_DATA "Enable data module" ON)
-option(ME_ENABLE_EDITOR "Enable editor module" OFF)
-option(ME_ENABLE_REPLAY "Enable replay module" ON)
+> 说明：`metrics`（指标统计）已内聚到 `logging`，`serialization`（消息编解码）已内聚到
+> `communication`，不再作为独立模块。领域模块（`simulation` / `world` / `entity` /
+> `environment` / `data` / `editor` / `replay`）属于**可选扩展**，模板仓库默认不包含，
+> 业务工程可按需派生。
 ```
 
 模块目录统一采用：
@@ -753,9 +730,7 @@ tests/framework/framework_smoke_test.cpp
 
 - 完善 `event` 异步队列
 - 完善 `runtime` 模块依赖排序和错误处理
-- 补充 `metrics`
-- 补充 `serialization`
-- 补充 `resource`
+- 完善 `communication` 事件桥接
 
 ### 第二阶段：通信与插件增强
 
@@ -763,15 +738,14 @@ tests/framework/framework_smoke_test.cpp
 
 建议：
 
-- 抽出 `MessageCodec`
 - 抽出 `ProtocolRegistry`
 - 为 communication 增加事件桥接
 - 为 plugin 增加 manifest 和 PluginContext
 - 增加插件 demo 和插件测试
 
-### 第三阶段：仿真领域模块
+### 第三阶段：仿真领域模块（可选扩展）
 
-目标：吸收实例项目中的仿真能力。
+目标：业务工程按需吸收实例项目中的仿真能力，模板仓库默认不包含。
 
 建议迁移：
 

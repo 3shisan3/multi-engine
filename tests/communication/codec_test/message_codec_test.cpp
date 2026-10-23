@@ -1,12 +1,12 @@
 /***************************************************************
 Copyright (c) 2022-2030, shisan233@sszc.live.
 SPDX-License-Identifier: MIT
-File:        serialization_smoke_test.cpp
-Description: 消息编解码模块冒烟测试
+File:        message_codec_test.cpp
+Description: 通信消息编解码测试
 
 *****************************************************************/
 
-#include "Serialization.h"
+#include "MessageCodec.h"
 
 #include <cmath>
 #include <cstdint>
@@ -14,7 +14,7 @@ Description: 消息编解码模块冒烟测试
 #include <string>
 #include <vector>
 
-using namespace SerializationModule;
+using namespace CommunicationModule;
 
 namespace
 {
@@ -72,7 +72,7 @@ int main()
         return 14;
     }
 
-    // 2. 字符串（含中文 UTF-8）与字节数组
+    // 2. 字符串（含中文）与字节数组
     std::string text = u8"hello 世界";
     std::vector<uint8_t> bytes = {0, 1, 2, 253, 254, 255};
 
@@ -92,11 +92,10 @@ int main()
     if (!reader3->ReadString().empty() || !reader3->ReadBytes().empty()) return 17;
 
     // 4. 越界读取应置错误并返回默认值
-    auto shortData = std::vector<uint8_t>{0x01, 0x02};
-    auto reader4 = CreateBinaryReader(shortData);
-    reader4->ReadUInt32(); // 数据不足
+    auto reader4 = CreateBinaryReader(std::vector<uint8_t>{0x01, 0x02});
+    reader4->ReadUInt32();
     if (!reader4->HasError()) return 18;
-    if (reader4->ReadUInt8() != 0) return 19; // 错误后返回默认值
+    if (reader4->ReadUInt8() != 0) return 19;
 
     // 5. 字符串长度前缀被截断应报错
     std::vector<uint8_t> truncated = {0x10, 0x00, 0x00, 0x00, 'a', 'b'};
@@ -104,7 +103,7 @@ int main()
     reader5->ReadString();
     if (!reader5->HasError()) return 20;
 
-    // 6. 小端序验证：单个字节与多字节字节序
+    // 6. 小端序验证
     auto writer6 = CreateBinaryWriter();
     writer6->WriteUInt32(0x01020304u);
     const std::vector<uint8_t>& raw = writer6->Data();
@@ -119,6 +118,6 @@ int main()
     writer->Clear();
     if (writer->Size() != 0) return 23;
 
-    std::cout << "serialization smoke test passed" << std::endl;
+    std::cout << "message codec test passed" << std::endl;
     return 0;
 }

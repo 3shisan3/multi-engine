@@ -2,7 +2,7 @@
 Copyright (c) 2022-2030, shisan233@sszc.live.
 SPDX-License-Identifier: MIT
 File:        Metrics.cpp
-Description: 指标统计模块实现
+Description: 指标统计实现（日志模块内聚能力）
 
 *****************************************************************/
 
@@ -15,7 +15,7 @@ Description: 指标统计模块实现
 using json = nlohmann::json;
 using namespace std::chrono;
 
-namespace MetricsModule
+namespace LogModule
 {
 
 namespace
@@ -183,4 +183,4 @@ ScopedTimer::~ScopedTimer()
     metrics_.Observe(name_, static_cast<double>(NowMs() - start_));
 }
 
-} // namespace MetricsModule
+} // namespace LogModule
