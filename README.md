@@ -43,6 +43,7 @@ multi-engine
 │  ├─ scheduler/           # 主循环调度器 / 事件调度器
 │  ├─ runtime/             # 应用上下文、服务注册表、模块管理器、应用入口
 │  ├─ communication/       # 多协议通信枢纽（TCP/UDP/DDS）、内部通信枢纽
+│  ├─ simulation/          # 仿真生命周期、状态机与时间推进（领域层）
 │  └─ plugin/              # 插件接口、插件管理器、动态库加载器
 ├─ tests/                  # 自动化验证
 │  ├─ framework/           # 框架链路冒烟测试
@@ -50,6 +51,7 @@ multi-engine
 │  ├─ metrics/             # 指标统计模块冒烟测试
 │  ├─ serialization/       # 消息编解码模块冒烟测试
 │  ├─ resource/            # 资源管理模块冒烟测试
+│  ├─ simulation/          # 仿真管理模块冒烟测试
 │  └─ plugin/              # 插件加载/卸载冒烟测试（含示例插件）
 ├─ thirdparty/             # 三方依赖（submodule）
 │  ├─ asio/                # TCP/UDP 网络
@@ -117,6 +119,7 @@ cmake --build build -j$(nproc)
 | `ME_ENABLE_METRICS` | ON | 指标统计模块 |
 | `ME_ENABLE_SERIALIZATION` | ON | 消息编解码模块 |
 | `ME_ENABLE_RESOURCE` | ON | 资源管理模块 |
+| `ME_ENABLE_SIMULATION` | ON | 仿真管理模块 |
 | `ME_ENABLE_SCHEDULER` | ON | 调度模块 |
 | `ME_ENABLE_RUNTIME` | ON | 运行时模块 |
 | `ME_ENABLE_PLUGIN` | ON | 插件模块 |
@@ -153,6 +156,7 @@ ctest --output-on-failure
 | `metrics_smoke_test` | 验证计数器/仪表盘/耗时观测、序列化与多线程安全 |
 | `serialization_smoke_test` | 验证基本类型/字符串/字节数组编解码、小端序与越界错误处理 |
 | `resource_smoke_test` | 验证提供者注册、缓存命中、引用回收、统计与并发获取 |
+| `simulation_smoke_test` | 验证仿真状态机、时间推进、时间倍率、固定步长与统计 |
 | `plugin_smoke_test` | 加载示例插件 DLL，验证启动/命令/停止/卸载全链路 |
 
 ---
@@ -165,6 +169,8 @@ baselib
 logging / config / event / metrics / serialization / resource
   ↓
 runtime / scheduler / communication / plugin
+  ↓
+simulation / world / entity / environment ...                ← 领域层（可选）
 ```
 
 - `baselib` 不依赖其他内部模块。

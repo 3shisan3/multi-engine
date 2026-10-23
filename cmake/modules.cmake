@@ -35,6 +35,10 @@ if (ME_ENABLE_RESOURCE)
     add_subdirectory(${MODULES_DIR}/resource)
 endif()
 
+if (ME_ENABLE_SIMULATION)
+    add_subdirectory(${MODULES_DIR}/simulation)
+endif()
+
 # 运行时层
 if (ME_ENABLE_SCHEDULER)
     add_subdirectory(${MODULES_DIR}/scheduler)
