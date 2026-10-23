@@ -6,6 +6,7 @@ option(BUILD_TESTING "Build tests" ON)
 option(ME_ENABLE_LOGGING "Enable logging module" ON)
 option(ME_ENABLE_CONFIG "Enable config module" ON)
 option(ME_ENABLE_EVENT "Enable event module" ON)
+option(ME_ENABLE_METRICS "Enable metrics module" ON)
 option(ME_ENABLE_SCHEDULER "Enable scheduler module" ON)
 option(ME_ENABLE_RUNTIME "Enable runtime module" ON)
 option(ME_ENABLE_PLUGIN "Enable plugin module" ON)
@@ -15,9 +16,10 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-# 指定编译输出的路径
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
-set(SUBLIB_OUT_PATH ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/inner)
+# 指定编译输出的路径（统一到构建目录，保证 exe 与 dll 同目录，便于运行与查找）
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+set(SUBLIB_OUT_PATH ${CMAKE_BINARY_DIR})
 
 # 基础变量定义
 set(MODULES_DIR ${CMAKE_CURRENT_SOURCE_DIR}/modules)
@@ -41,6 +43,10 @@ endif()
 
 if (ME_ENABLE_EVENT)
     add_subdirectory(${MODULES_DIR}/event)
+endif()
+
+if (ME_ENABLE_METRICS)
+    add_subdirectory(${MODULES_DIR}/metrics)
 endif()
 
 if (ME_ENABLE_SCHEDULER)

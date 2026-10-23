@@ -44,7 +44,17 @@ PluginManagerImpl::~PluginManagerImpl()
             std::cerr << "Error unloading plugin " << pair.first << ": " << e.what() << std::endl;
         }
     }
+
+    // 先移除库条目中对插件实例的引用，确保销毁插件时其动态库仍处于加载状态
+    for (auto& lib : libraries_)
+    {
+        lib.second.plugins.clear();
+    }
+
+    // 销毁插件实例（destroyFunc 属于插件库，此时库尚未卸载）
     plugins_.clear();
+
+    // 最后卸载动态库
     libraries_.clear();
 }
 
@@ -105,9 +115,54 @@ std::string PluginManagerImpl::LoadPlugin(const std::string &pluginPath)
     // 加载配置
     LoadPluginConfig(pluginId);
 
+    // 初始化插件：加载后必须初始化，否则 Start 会因未初始化而失败
+    if (!InitializeLoadedPlugin(pluginId))
+    {
+        std::cerr << "Failed to initialize plugin: " << pluginId << std::endl;
+        UnloadPlugin(pluginId);
+        return "";
+    }
+
     NotifyPluginEvent(pluginId, PluginEvent::LOADED);
 
     return pluginId;
+}
+
+bool PluginManagerImpl::InitializeLoadedPlugin(const std::string &pluginId)
+{
+    std::shared_ptr<IPlugin> plugin;
+    std::map<std::string, std::any> config;
+
+    {
+        std::shared_lock lock(pluginsMutex_);
+        auto it = plugins_.find(pluginId);
+        if (it == plugins_.end())
+        {
+            return false;
+        }
+
+        plugin = it->second.plugin;
+
+        auto configIt = it->second.config.find("parsed");
+        if (configIt != it->second.config.end())
+        {
+            try
+            {
+                config = std::any_cast<std::map<std::string, std::any>>(configIt->second);
+            }
+            catch (...)
+            {
+                config.clear();
+            }
+        }
+    }
+
+    if (!plugin)
+    {
+        return false;
+    }
+
+    return plugin->Initialize(config);
 }
 
 bool PluginManagerImpl::LoadPluginInternal(const std::string &pluginPath, PluginEntry &entry)
@@ -296,6 +351,11 @@ bool PluginManagerImpl::UnloadPlugin(const std::string &pluginId)
         }
     }
 
+    // 关键：在卸载动态库之前释放插件实例。
+    // 插件的 destroyFunc 属于该动态库，若在 FreeLibrary/dlclose 之后调用，
+    // 会访问已卸载的代码段导致崩溃。
+    // 注意：此处先不 reset，需结合外部引用情况判断是否可立即卸载库。
+
     // 清理库引用
     std::string libraryKey;
     try
@@ -307,6 +367,7 @@ bool PluginManagerImpl::UnloadPlugin(const std::string &pluginId)
         libraryKey = libraryPath;
     }
 
+    bool canUnloadLibrary = false;
     {
         std::unique_lock lock(pluginsMutex_);
         auto libIt = libraries_.find(libraryKey);
@@ -314,12 +375,28 @@ bool PluginManagerImpl::UnloadPlugin(const std::string &pluginId)
         {
             libIt->second.plugins.erase(pluginId);
 
-            // 如果库中没有其他插件，卸载库
-            if (libIt->second.plugins.empty())
+            // 仅当库中无其他插件、且没有外部 shared_ptr 持有该实例时才立即卸载库。
+            // use_count 包含本函数内的局部 plugin 引用，因此 >1 说明仍有外部持有者，
+            // 此时卸载库会导致外部持有者析构时调用已卸载 DLL 的 destroyFunc 而崩溃，
+            // 故延迟到管理器析构时再统一卸载。
+            if (libIt->second.plugins.empty() && plugin.use_count() <= 1)
             {
-                libIt->second.loader->Unload();
-                libraries_.erase(libIt);
+                canUnloadLibrary = true;
             }
+        }
+    }
+
+    if (canUnloadLibrary)
+    {
+        // 先销毁实例（此时库仍处于加载状态），再卸载库
+        plugin.reset();
+
+        std::unique_lock lock(pluginsMutex_);
+        auto libIt = libraries_.find(libraryKey);
+        if (libIt != libraries_.end())
+        {
+            libIt->second.loader->Unload();
+            libraries_.erase(libIt);
         }
     }
 

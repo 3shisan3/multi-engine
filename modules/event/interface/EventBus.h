@@ -2,6 +2,7 @@
 #define ME_EVENT_BUS_H
 
 #include <any>
+#include <cstdint>
 #include <functional>
 #include <map>
 #include <memory>

@@ -88,6 +88,13 @@ private:
     bool LoadPluginInternal(const std::string &pluginPath, PluginEntry &entry);
 
     /**
+     * @brief 初始化已加载的插件
+     * @param pluginId 插件ID
+     * @return 成功返回true
+     */
+    bool InitializeLoadedPlugin(const std::string &pluginId);
+
+    /**
      * @brief 内部卸载插件
      * @param pluginId 插件ID
      */

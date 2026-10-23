@@ -8,6 +8,9 @@ file(GLOB_RECURSE PLUGIN_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp)
 # 构建库
 add_library(${PROJECT_NAME} SHARED ${PLUGIN_SOURCES})
 
+# 插件模块作为导出方，编译期定义导出宏
+target_compile_definitions(${PROJECT_NAME} PRIVATE PLUGIN_SYSTEM_EXPORTS)
+
 # 指定公开包含目录
 target_include_directories(${PROJECT_NAME}
     PUBLIC

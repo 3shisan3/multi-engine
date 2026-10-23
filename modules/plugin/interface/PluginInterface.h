@@ -16,11 +16,22 @@ Version history
 #define PLUGIN_SYSTEM_INTERFACE_H
 
 #include <any>
+#include <cstdint>
 #include <functional>
 #include <map>
 #include <memory>
 #include <string>
 #include <vector>
+
+#ifdef _WIN32
+    #ifdef PLUGIN_SYSTEM_EXPORTS
+        #define PLUGIN_EXPORT __declspec(dllexport)
+    #else
+        #define PLUGIN_EXPORT __declspec(dllimport)
+    #endif
+#else
+    #define PLUGIN_EXPORT __attribute__((visibility("default")))
+#endif
 
 namespace PluginSystem
 {

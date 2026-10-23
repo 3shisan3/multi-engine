@@ -3,8 +3,6 @@ project(test_communication)
 set(TEST_PROJECT_NAME game_test CACHE INTERNAL "Name of the test project")
 option(TEST_COMMUNICATION_USE_PYTHON "Use Python for communication tests" ON)
 
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin/${TEST_PROJECT_NAME})
-
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/${TEST_PROJECT_NAME}/src)
 
 file(GLOB TEST_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/${TEST_PROJECT_NAME}/src/*.cpp)

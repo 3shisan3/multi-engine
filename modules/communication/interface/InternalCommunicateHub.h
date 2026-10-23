@@ -19,6 +19,7 @@ Version history
 #include <any>
 #include <atomic>
 #include <condition_variable>
+#include <cstdint>
 #include <functional>
 #include <future>
 #include <map>

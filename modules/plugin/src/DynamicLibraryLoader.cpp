@@ -132,7 +132,7 @@ void *DynamicLibraryLoaderImpl::GetRawSymbol(const std::string &symbolName)
     }
 
 #ifdef _WIN32
-    void *symbol = GetProcAddress(static_cast<HMODULE>(handle_), symbolName.c_str());
+    void *symbol = reinterpret_cast<void *>(GetProcAddress(static_cast<HMODULE>(handle_), symbolName.c_str()));
     if (!symbol)
     {
         lastError_ = GetLastErrorString();
@@ -170,7 +170,7 @@ std::string DynamicLibraryLoaderImpl::GetLastError() const
 #ifdef _WIN32
 std::string DynamicLibraryLoaderImpl::GetLastErrorString()
 {
-    DWORD error = GetLastError();
+    DWORD error = ::GetLastError();
     if (error == 0)
     {
         return "Unknown error";

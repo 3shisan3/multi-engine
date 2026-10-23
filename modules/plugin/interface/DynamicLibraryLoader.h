@@ -21,15 +21,7 @@ Version history
 #include <memory>
 #include <string>
 
-#ifdef _WIN32
-    #ifdef PLUGIN_SYSTEM_EXPORTS
-        #define PLUGIN_EXPORT __declspec(dllexport)
-    #else
-        #define PLUGIN_EXPORT __declspec(dllimport)
-    #endif
-#else
-    #define PLUGIN_EXPORT __attribute__((visibility("default")))
-#endif
+// PLUGIN_EXPORT 宏已统一收敛到 PluginInterface.h
 
 namespace PluginSystem
 {

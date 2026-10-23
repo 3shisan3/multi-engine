@@ -801,7 +801,7 @@ inline bool ThreadPool::set_current_thread_affinity(const std::vector<bool> &cpu
 inline bool ThreadPool::platform_set_thread_priority(std::thread::native_handle_type handle, priority_t prio)
 {
 #ifdef THREADPOOL_WINDOWS
-    return SetThreadPriority(handle, static_cast<int>(prio)) != 0;
+    return SetThreadPriority(reinterpret_cast<HANDLE>(handle), static_cast<int>(prio)) != 0;
 #elif defined(THREADPOOL_POSIX)
     int nice_val = static_cast<int>(prio) / 4;
     if (nice_val < -20)
@@ -822,7 +822,7 @@ inline bool ThreadPool::platform_set_thread_affinity(std::thread::native_handle_
         if (cpus[i])
             mask |= (1ULL << i);
     }
-    return SetThreadAffinityMask(handle, mask) != 0;
+    return SetThreadAffinityMask(reinterpret_cast<HANDLE>(handle), mask) != 0;
 #elif defined(THREADPOOL_POSIX) && defined(__linux__)
     cpu_set_t cpu_set;
     CPU_ZERO(&cpu_set);
