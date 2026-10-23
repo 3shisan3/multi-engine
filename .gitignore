@@ -8,3 +8,5 @@ build_*
 bin
 # 运行时日志
 logs
+# 本地个人配置（权限、attribution 等）
+.claude/settings.local.json
