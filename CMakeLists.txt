@@ -8,6 +8,7 @@ option(ME_ENABLE_CONFIG "Enable config module" ON)
 option(ME_ENABLE_EVENT "Enable event module" ON)
 option(ME_ENABLE_METRICS "Enable metrics module" ON)
 option(ME_ENABLE_SERIALIZATION "Enable serialization module" ON)
+option(ME_ENABLE_RESOURCE "Enable resource module" ON)
 option(ME_ENABLE_SCHEDULER "Enable scheduler module" ON)
 option(ME_ENABLE_RUNTIME "Enable runtime module" ON)
 option(ME_ENABLE_PLUGIN "Enable plugin module" ON)
@@ -52,6 +53,10 @@ endif()
 
 if (ME_ENABLE_SERIALIZATION)
     add_subdirectory(${MODULES_DIR}/serialization)
+endif()
+
+if (ME_ENABLE_RESOURCE)
+    add_subdirectory(${MODULES_DIR}/resource)
 endif()
 
 if (ME_ENABLE_SCHEDULER)

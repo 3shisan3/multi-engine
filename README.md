@@ -26,6 +26,7 @@ multi-engine
 │  ├─ event/               # 进程内事件总线（发布订阅）
 │  ├─ metrics/             # 指标统计（计数器/仪表盘/耗时观测）
 │  ├─ serialization/       # 消息编解码（小端序二进制协议）
+│  ├─ resource/            # 资源管理（提供者注册、缓存、引用回收）
 │  ├─ scheduler/           # 主循环调度器 / 事件调度器
 │  ├─ runtime/             # 应用上下文、服务注册表、模块管理器、应用入口
 │  ├─ communication/       # 多协议通信枢纽（TCP/UDP/DDS）、内部通信枢纽
@@ -35,6 +36,7 @@ multi-engine
 │  ├─ communication/       # 通信模块游戏服务器示例 + Python 冒烟测试
 │  ├─ metrics/             # 指标统计模块冒烟测试
 │  ├─ serialization/       # 消息编解码模块冒烟测试
+│  ├─ resource/            # 资源管理模块冒烟测试
 │  └─ plugin/              # 插件加载/卸载冒烟测试（含示例插件）
 ├─ thirdparty/             # 三方依赖（submodule）
 │  ├─ asio/                # TCP/UDP 网络
@@ -101,6 +103,7 @@ cmake --build build -j$(nproc)
 | `ME_ENABLE_EVENT` | ON | 事件模块 |
 | `ME_ENABLE_METRICS` | ON | 指标统计模块 |
 | `ME_ENABLE_SERIALIZATION` | ON | 消息编解码模块 |
+| `ME_ENABLE_RESOURCE` | ON | 资源管理模块 |
 | `ME_ENABLE_SCHEDULER` | ON | 调度模块 |
 | `ME_ENABLE_RUNTIME` | ON | 运行时模块 |
 | `ME_ENABLE_PLUGIN` | ON | 插件模块 |
@@ -127,6 +130,7 @@ ctest --output-on-failure
 | `communication_smoke_test` | 启动游戏服务器示例，Python 客户端完成 TCP 登录/消息流程 |
 | `metrics_smoke_test` | 验证计数器/仪表盘/耗时观测、序列化与多线程安全 |
 | `serialization_smoke_test` | 验证基本类型/字符串/字节数组编解码、小端序与越界错误处理 |
+| `resource_smoke_test` | 验证提供者注册、缓存命中、引用回收、统计与并发获取 |
 | `plugin_smoke_test` | 加载示例插件 DLL，验证启动/命令/停止/卸载全链路 |
 
 ---
@@ -136,7 +140,7 @@ ctest --output-on-failure
 ```text
 baselib
   ↓
-logging / config / event / metrics / serialization
+logging / config / event / metrics / serialization / resource
   ↓
 runtime / scheduler / communication / plugin
 ```
